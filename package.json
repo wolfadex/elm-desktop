@@ -1,0 +1,17 @@
+{
+  "name": "pipeline-gui",
+  "version": "0.1.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev:elm": "deno run -A ./dev.ts",
+    "dev:main": "node dist/server.mjs"
+  },
+  "author": "Wolfgang Schuster",
+  "volta": {
+    "node": "16.0.0"
+  },
+  "dependencies": {
+    "webview": "^1.0.0"
+  }
+}
