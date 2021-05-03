@@ -52,7 +52,7 @@ update msg model =
 
         DecrementMany ->
             ( model
-            , Effect.toServer (IncrementBy -3 model.count)
+            , Effect.toServer (DecrementBy -3 model.count)
             )
 
 
