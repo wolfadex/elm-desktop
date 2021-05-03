@@ -5,7 +5,7 @@ echo "Building Elm..."
 elm make .desktop/Desktop/Server.elm .desktop/Desktop/Window.elm --output=dist/public/elm.js
 
 # find and replace
-deno run -A dev.ts
+node dev.js
 
 cp dist/public/elm.js dist/elm.mjs
 
