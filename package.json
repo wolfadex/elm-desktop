@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "description": "",
   "scripts": {
-    "dev:elm": "deno run -A ./dev.ts",
-    "dev:main": "node dist/server.mjs"
+    "dev:build": "./dev.sh",
+    "dev:start": "node dist/server.mjs"
   },
   "author": "Wolfgang Schuster",
   "volta": {
