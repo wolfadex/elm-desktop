@@ -1,8 +1,7 @@
 {
-  "name": "pipeline-gui",
+  "name": "elm-desktop",
   "version": "0.1.0",
   "description": "",
-  "main": "index.js",
   "scripts": {
     "dev:elm": "deno run -A ./dev.ts",
     "dev:main": "node dist/server.mjs"
