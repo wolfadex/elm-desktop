@@ -1,9 +1,12 @@
 import { spawn } from "child_process";
 import path from "path";
 import webview from "webview";
+import WebSocket from "ws";
 import Elm from "./elm.mjs";
 
-let elmApp;
+const wss = new WebSocket.Server({ port: 8080 });
+let elmServerApp;
+let appWindow;
 
 Object.defineProperty(Object.prototype, "__elm_interop_sync", {
   set(code) {
@@ -52,49 +55,50 @@ setTimeout = (callback, time, ...args) => {
     Promise.resolve()
       .then(async (_) => {
         switch (msg) {
-          case "RUN_COMMAND":
-            {
-              const [actualCmd, ...cmdArgs] = args.cmd;
-              const cmdProcess = spawn(actualCmd, cmdArgs);
+          case "TO_WINDOW": {
+            arg.socket.send(args.message);
+            return true;
+          }
+          case "RUN_COMMAND": {
+            const [actualCmd, ...cmdArgs] = args.cmd;
+            const cmdProcess = spawn(actualCmd, cmdArgs);
 
-              cmdProcess.stdout.on("data", async (data) => {
-                const decoder = new TextDecoder("utf-8");
-                const value = await decoder.decode(data);
+            cmdProcess.stdout.on("data", async (data) => {
+              const decoder = new TextDecoder("utf-8");
+              const value = await decoder.decode(data);
 
-                elmApp.ports.commandStdOut.send({ id: args.id, value });
-              });
+              elmServerApp.ports.commandStdOut.send({ id: args.id, value });
+            });
 
-              cmdProcess.stderr.on("data", async (data) => {
-                const decoder = new TextDecoder("utf-8");
-                const value = await decoder.decode(data);
+            cmdProcess.stderr.on("data", async (data) => {
+              const decoder = new TextDecoder("utf-8");
+              const value = await decoder.decode(data);
 
-                elmApp.ports.commandStdErr.send({ id: args.id, value });
-              });
+              elmServerApp.ports.commandStdErr.send({ id: args.id, value });
+            });
 
-              cmdProcess.on("exit", async (code) => {
-                elmApp.ports.commandDone.send({ id: args.id, value: code });
-              });
-            }
-            break;
-          case "OPEN_WINDOW":
-            {
-              console.log("carl", 1, process.cwd());
-              const appWindow = spawn(
-                webview.binaryPath,
-                [
-                  ["--title", args.title],
-                  ["--width", args.width],
-                  ["--height", args.height],
-                  ["--dir", "public"],
-                ].flat(),
-                { cwd: path.join(process.cwd(), "dist") }
-              );
-              elmApp.ports.windowOpened.send({
+            cmdProcess.on("exit", async (code) => {
+              elmServerApp.ports.commandDone.send({
                 id: args.id,
-                window: appWindow,
+                value: code,
               });
-            }
-            break;
+            });
+
+            return true;
+          }
+          case "OPEN_WINDOW": {
+            const appWindow = spawn(
+              webview.binaryPath,
+              [
+                ["--title", args.title],
+                ["--width", args.width],
+                ["--height", args.height],
+                ["--dir", "public"],
+              ].flat(),
+              { cwd: path.join(process.cwd(), "dist") }
+            );
+            return appWindow;
+          }
           default:
             console.error(`Error: Unknown server request: "${msg}"`, args);
         }
@@ -113,4 +117,31 @@ setTimeout = (callback, time, ...args) => {
   }
 };
 
-elmApp = Elm.Pipeline.init();
+elmServerApp = Elm.Desktop.Server.init();
+
+elmServerApp.ports.fromServer.subscribe(function (msg) {
+  if (msg.socket) {
+    msg.socket.send(JSON.stringify(msg.message));
+  }
+});
+
+wss.on("connection", function connection(ws) {
+  elmServerApp.ports.windowConnection.send(ws);
+
+  ws.on("message", function incoming(message) {
+    elmServerApp.ports.toServer.send(JSON.parse(message));
+  });
+});
+
+elmServerApp.ports.openWindow.subscribe(function (msg) {
+  appWindow = spawn(
+    webview.binaryPath,
+    [
+      ["--title", msg.title],
+      ["--width", msg.width],
+      ["--height", msg.height],
+      ["--dir", "public"],
+    ].flat(),
+    { cwd: path.join(process.cwd(), "dist") }
+  );
+});

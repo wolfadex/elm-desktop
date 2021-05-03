@@ -1,7 +1,12 @@
-import { compileToModule } from "https://deno.land/x/deno_elm_compiler@0.1.0/compiler.ts";
+const decoder = new TextDecoder("utf-8");
+const data = await Deno.readFile("dist/public/elm.js");
+const elm = await decoder.decode(data);
 
-await compileToModule("./src/Pipeline.elm", { output: "./dist/elm.js" });
+const result = elm.replace(
+  /_Debug_todo\([\n\t\w'.,{:}\s()]*'REPLACE_ME::(.*)'\)/g,
+  "$1"
+);
 
-await Deno.rename("dist/elm.js", "dist/elm.mjs");
-
-console.log("Elm compiled");
+const encoder = new TextEncoder();
+const resultData = await encoder.encode(result);
+await Deno.writeFile("dist/public/elm.js", resultData);

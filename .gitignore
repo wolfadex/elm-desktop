@@ -1,4 +1,7 @@
 node_modules
 elm-stuff
-.DS_Store
+
+dist/public/elm.js
 dist/elm.mjs
+
+.DS_Store
