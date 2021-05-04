@@ -31,8 +31,6 @@ init _ =
     , width = 800
     , height = 600
     , model = {}
-
-    -- , effect = Effect.toWindow 0 (SetCount -1)
     , effect = Effect.none
     }
 

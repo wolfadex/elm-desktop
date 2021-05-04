@@ -1,6 +1,6 @@
 port module Desktop.Server exposing (..)
 
-import Desktop.Server.Effect as Effect exposing (ServerEffect(..))
+import Desktop.Server.Effect exposing (ServerEffect(..))
 import Dict exposing (Dict)
 import Interop
 import Json.Decode exposing (Decoder)
@@ -122,10 +122,6 @@ update serverUpdateFromWindow serverUpdate msg model =
             ( { model | window = Just window }, Cmd.none )
 
         ToServerMessage msgVal ->
-            -- case Json.Decode.decodeValue decodeToServerMessage msgVal of
-            --     Err err ->
-            --         ( model, Cmd.none )
-            --     Ok message ->
             updateServer (serverUpdateFromWindow 0 (Debug.todo "REPLACE_ME::_Json_unwrap(msgVal)")) model
 
         CommandStdErr errVal ->
