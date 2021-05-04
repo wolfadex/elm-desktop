@@ -12,7 +12,7 @@ toString : Error -> String
 toString error =
     case error of
         TypeError err ->
-            "Type Error: " ++ Json.Decode.errorToString err
+            Json.Decode.errorToString err
 
         RuntimeError err ->
-            "Runtime Error" ++ err
+            err

@@ -1,9 +1,15 @@
 import { spawn } from "child_process";
 import path from "path";
+import { fileURLToPath } from "url";
 import webview from "webview";
 import WebSocket from "ws";
 import Elm from "./elm.mjs";
 
+/**
+ * `__dirname` isn't accessible in `.mjs` files so we use this.
+ * https://stackoverflow.com/questions/8817423/why-is-dirname-not-defined-in-node-repl
+ */
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const wss = new WebSocket.Server({ port: 8080 });
 let elmServerApp;
 let appWindow;
@@ -20,6 +26,12 @@ Object.defineProperty(Object.prototype, "__elm_interop_sync", {
           break;
         case "GET_ENV":
           result = process.env[args];
+          break;
+        case "GET_CWD":
+          result = process.cwd();
+          break;
+        case "CHANGE_CWD":
+          process.chdir(args);
           break;
         default:
           throw new Error(`Unknown JS code to run: ${msg}`);
@@ -99,7 +111,7 @@ setTimeout = (callback, time, ...args) => {
                 ["--height", args.height],
                 ["--dir", "public"],
               ].flat(),
-              { cwd: path.join(process.cwd(), "dist") }
+              { cwd: __dirname }
             );
             return appWindow;
           }
@@ -146,6 +158,6 @@ elmServerApp.ports.openWindow.subscribe(function (msg) {
       ["--height", msg.height],
       ["--dir", "public"],
     ].flat(),
-    { cwd: path.join(process.cwd(), "dist") }
+    { cwd: __dirname }
   );
 });

@@ -255,12 +255,6 @@ fromEffect effect model =
                 |> Task.attempt (\_ -> NoOp)
             )
 
-        EffPrintLn message ->
-            Interop.eval
-                { msg = "PRINT_LINE", args = Json.Encode.string message }
-                (Json.Decode.succeed ())
-                |> (\_ -> ( model, Cmd.none ))
-
         EffToWindow windowId val ->
             ( model
             , fromServer
