@@ -1,6 +1,6 @@
 {
   "name": "elm-desktop",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "",
   "scripts": {
     "dev:build": "./dev.sh",
@@ -13,5 +13,9 @@
   "dependencies": {
     "webview": "^1.0.0",
     "ws": "^7.4.5"
+  },
+  "devDependencies": {
+    "elm": "^0.19.1-5",
+    "elm-format": "^0.8.5"
   }
 }
