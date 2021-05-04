@@ -72,10 +72,6 @@ update updateFromServer windowUpdate msg model =
             updateWindow (windowUpdate windowMsg) model
 
         ToWindowMessage msgVal ->
-            -- case Json.Decode.decodeValue decodeToWindowMessage msgVal of
-            --     Err err ->
-            --         ( model, Cmd.none )
-            --     Ok message ->
             updateWindow (updateFromServer (Debug.todo "REPLACE_ME::_Json_unwrap(msgVal)")) model
 
 

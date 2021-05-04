@@ -1,9 +1,16 @@
 import { spawn } from "child_process";
 import path from "path";
+import { fileURLToPath } from "url";
+import fsPromises from "fs/promises";
 import webview from "webview";
 import WebSocket from "ws";
 import Elm from "./elm.mjs";
 
+/**
+ * `__dirname` isn't accessible in `.mjs` files so we use this.
+ * https://stackoverflow.com/questions/8817423/why-is-dirname-not-defined-in-node-repl
+ */
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const wss = new WebSocket.Server({ port: 8080 });
 let elmServerApp;
 let appWindow;
@@ -16,6 +23,20 @@ Object.defineProperty(Object.prototype, "__elm_interop_sync", {
       switch (msg) {
         case "PRINT_LINE":
           console.log(args);
+          result = null;
+          break;
+        case "GET_ENV":
+          result = process.env[args];
+          break;
+        case "GET_CWD":
+          result = process.cwd();
+          break;
+        case "CHANGE_CWD":
+          process.chdir(args);
+          result = null;
+          break;
+        case "GET_PLATFORM":
+          result = process.platform;
           break;
         default:
           throw new Error(`Unknown JS code to run: ${msg}`);
@@ -95,10 +116,16 @@ setTimeout = (callback, time, ...args) => {
                 ["--height", args.height],
                 ["--dir", "public"],
               ].flat(),
-              { cwd: path.join(process.cwd(), "dist") }
+              { cwd: __dirname }
             );
             return appWindow;
           }
+          case "FS_READ_FILE":
+            return fsPromises.readFile(args.path, args.options);
+          case "FS_WRITE_FILE":
+            return fsPromises
+              .writeFile(args.path, args.data, args.options)
+              .then(() => null);
           default:
             console.error(`Error: Unknown server request: "${msg}"`, args);
         }
@@ -142,6 +169,6 @@ elmServerApp.ports.openWindow.subscribe(function (msg) {
       ["--height", msg.height],
       ["--dir", "public"],
     ].flat(),
-    { cwd: path.join(process.cwd(), "dist") }
+    { cwd: __dirname }
   );
 });

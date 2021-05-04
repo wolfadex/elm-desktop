@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 None
 
+## [0.3.0] - 2021-05-04
+
+### Added
+
+- `Desktop.Server.Effect.getEnvVariable : String -> Maybe String`
+- `Desktop.Server.Effect.getCwd : String`
+- `Desktop.Server.Effect.setCwd : String -> Result String String`
+- `Desktop.Server.Effect.getOs : Os` and it's related `Os` type
+- `Desktop.Server.Effect.readFile` and related types `File`, `Path`, `Encoding`, `Flag`
+- `Desktop.Server.Effect.writeFile`
+
 ## [0.2.0] - 2021-05-03
 
 ### Changed

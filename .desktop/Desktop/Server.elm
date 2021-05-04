@@ -1,7 +1,8 @@
 port module Desktop.Server exposing (..)
 
-import Desktop.Server.Effect as Effect exposing (ServerEffect(..))
+import Desktop.Server.Effect as Effect exposing (Flag(..), ServerEffect(..))
 import Dict exposing (Dict)
+import Error
 import Interop
 import Json.Decode exposing (Decoder)
 import Json.Encode exposing (Value)
@@ -122,10 +123,6 @@ update serverUpdateFromWindow serverUpdate msg model =
             ( { model | window = Just window }, Cmd.none )
 
         ToServerMessage msgVal ->
-            -- case Json.Decode.decodeValue decodeToServerMessage msgVal of
-            --     Err err ->
-            --         ( model, Cmd.none )
-            --     Ok message ->
             updateServer (serverUpdateFromWindow 0 (Debug.todo "REPLACE_ME::_Json_unwrap(msgVal)")) model
 
         CommandStdErr errVal ->
@@ -259,11 +256,44 @@ fromEffect effect model =
                 |> Task.attempt (\_ -> NoOp)
             )
 
-        EffPrintLn message ->
-            Interop.eval
-                { msg = "PRINT_LINE", args = Json.Encode.string message }
+        EffReadFile config ->
+            ( model
+            , Interop.evalAsync
+                "FS_READ_FILE"
+                (Json.Encode.object
+                    [ ( "path", Json.Encode.string config.path )
+                    , ( "options"
+                      , Json.Encode.object
+                            [ ( "encoding", Json.Encode.string config.encoding )
+                            , ( "flag", Effect.encodeFlag config.flag )
+                            ]
+                      )
+                    ]
+                )
+                Json.Decode.string
+                |> Task.attempt (Result.mapError Error.toString >> config.onRead)
+                |> Cmd.map ServerMessage
+            )
+
+        EffWriteFile config ->
+            ( model
+            , Interop.evalAsync
+                "FS_WRITE_FILE"
+                (Json.Encode.object
+                    [ ( "path", Json.Encode.string config.path )
+                    , ( "data", Json.Encode.string config.data )
+                    , ( "options"
+                      , Json.Encode.object
+                            [ ( "encoding", Json.Encode.string config.encoding )
+                            , ( "flag", Effect.encodeFlag config.flag )
+                            ]
+                      )
+                    ]
+                )
                 (Json.Decode.succeed ())
-                |> (\_ -> ( model, Cmd.none ))
+                |> Task.attempt (Result.mapError Error.toString >> config.onWrite)
+                |> Cmd.map ServerMessage
+            )
 
         EffToWindow windowId val ->
             ( model
