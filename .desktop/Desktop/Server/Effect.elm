@@ -1,24 +1,4 @@
-module Desktop.Server.Effect exposing
-    ( Os(..)
-    , getOs
-    , printLn
-    , getEnvVariable
-    , getCwd
-    , setCwd
-    , ServerEffect(..)
-    , none
-    , batch
-    , Command
-    , runCommand
-    , toWindow
-    , File
-    , Path
-    , Encoding
-    , Flag(..)
-    , readFile
-    , writeFile
-    , encodeFlag
-    )
+port module Desktop.Server.Effect exposing (..)
 
 {-| A collection of synchronous and asynchronous effects for the Server side of your app. These are effects because they are in some way interacting with things outside the confines of your app.
 
@@ -59,11 +39,13 @@ module Desktop.Server.Effect exposing
 
 -}
 
+import Dict exposing (Dict)
 import Error
 import Interop
 import Json.Decode
 import Json.Encode exposing (Value)
-import Types exposing (ToWindow)
+import Task exposing (Task)
+import Types exposing (ServerModel, ServerMsg, ToWindow)
 
 
 
@@ -169,49 +151,70 @@ decodeOsPlatform =
 ---- ASYNCHRONOUS ----
 
 
-{-| -}
-type ServerEffect msg
-    = EffNone
-    | Effbatch (List (ServerEffect msg))
-    | EffCommand (Command msg)
-    | EffToWindow Int ToWindow
-    | EffReadFile { encoding : Encoding, flag : Flag, onRead : Result String File -> msg, path : Path }
-    | EffWriteFile { path : Path, encoding : Encoding, flag : Flag, onWrite : Result String () -> msg, data : String }
+type alias Model =
+    { serverModel : ServerModel
+    , serverCommandsStdErr : Dict Int (String -> ServerMsg)
+    , serverCommandsStdOut : Dict Int (String -> ServerMsg)
+    , serverCommandsDone : Dict Int (Int -> ServerMsg)
+    , nextId : Int
+    , window : Maybe Value
+    }
+
+
+type Msg
+    = NoOp
+    | ServerMessage ServerMsg
+    | CommandStdErr Value
+    | CommandStdOut Value
+    | CommandDone Value
+    | WindowConnection Value
+    | ToServerMessage Value
 
 
 {-| The command you want to run, and its arguments.
 -}
-type alias Command msg =
+type alias Command =
     { command : String
     , arguments : List String
-    , stderr : String -> msg
-    , stdout : String -> msg
-    , done : Int -> msg
+    , stderr : String -> ServerMsg
+    , stdout : String -> ServerMsg
+    , done : Int -> ServerMsg
     }
 
 
 {-| -}
-runCommand : Command msg -> ServerEffect msg
-runCommand =
-    EffCommand
+runCommand : Model -> Command -> ( Model, Cmd Msg )
+runCommand model command =
+    ( { model
+        | serverCommandsStdErr = Dict.insert model.nextId command.stderr model.serverCommandsStdErr
+        , serverCommandsStdOut = Dict.insert model.nextId command.stdout model.serverCommandsStdOut
+        , serverCommandsDone = Dict.insert model.nextId command.done model.serverCommandsDone
+        , nextId = model.nextId + 1
+      }
+    , Interop.evalAsync
+        "RUN_COMMAND"
+        (Json.Encode.object
+            [ ( "cmd", Json.Encode.list Json.Encode.string (command.command :: command.arguments) )
+            , ( "id", Json.Encode.int model.nextId )
+            ]
+        )
+        (Json.Decode.succeed ())
+        |> Task.attempt (\_ -> NoOp)
+    )
+
+
+port fromServer : Value -> Cmd msg
 
 
 {-| -}
-batch : List (ServerEffect msg) -> ServerEffect msg
-batch =
-    Effbatch
-
-
-{-| -}
-none : ServerEffect msg
-none =
-    EffNone
-
-
-{-| -}
-toWindow : Int -> ToWindow -> ServerEffect msg
-toWindow =
-    EffToWindow
+toWindow : Value -> ToWindow -> Cmd msg
+toWindow window val =
+    fromServer
+        (Json.Encode.object
+            [ ( "socket", window )
+            , ( "message", Debug.todo "REPLACE_ME::_Json_wrap(val)" )
+            ]
+        )
 
 
 
@@ -259,17 +262,42 @@ type alias Path =
 
 
 {-| -}
-readFile : { encoding : Encoding, flag : Flag, onRead : Result String File -> msg } -> Path -> ServerEffect msg
-readFile { encoding, flag, onRead } path =
-    EffReadFile
-        { encoding = encoding, flag = flag, onRead = onRead, path = path }
+readFile : { encoding : Encoding, flag : Flag } -> Path -> Task String File
+readFile { encoding, flag } path =
+    Interop.evalAsync
+        "FS_READ_FILE"
+        (Json.Encode.object
+            [ ( "path", Json.Encode.string path )
+            , ( "options"
+              , Json.Encode.object
+                    [ ( "encoding", Json.Encode.string encoding )
+                    , ( "flag", encodeFlag flag )
+                    ]
+              )
+            ]
+        )
+        Json.Decode.string
+        |> Task.mapError Error.toString
 
 
 {-| -}
-writeFile : { path : Path, encoding : Encoding, flag : Flag, onWrite : Result String () -> msg } -> String -> ServerEffect msg
-writeFile { encoding, flag, onWrite, path } data =
-    EffWriteFile
-        { encoding = encoding, flag = flag, onWrite = onWrite, path = path, data = data }
+writeFile : { path : Path, encoding : Encoding, flag : Flag } -> String -> Task String ()
+writeFile { encoding, flag, path } data =
+    Interop.evalAsync
+        "FS_WRITE_FILE"
+        (Json.Encode.object
+            [ ( "path", Json.Encode.string path )
+            , ( "data", Json.Encode.string data )
+            , ( "options"
+              , Json.Encode.object
+                    [ ( "encoding", Json.Encode.string encoding )
+                    , ( "flag", encodeFlag flag )
+                    ]
+              )
+            ]
+        )
+        (Json.Decode.succeed ())
+        |> Task.mapError Error.toString
 
 
 encodeFlag : Flag -> Value

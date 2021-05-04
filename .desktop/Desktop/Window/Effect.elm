@@ -1,24 +1,12 @@
-module Desktop.Window.Effect exposing (..)
+port module Desktop.Window.Effect exposing (..)
 
+import Json.Encode exposing (Value)
 import Types exposing (ToServer)
 
 
-batch : List (WindowEffect msg) -> WindowEffect msg
-batch =
-    Effbatch
+port fromWindow : Value -> Cmd msg
 
 
-none : WindowEffect msg
-none =
-    EffNone
-
-
-type WindowEffect msg
-    = EffNone
-    | Effbatch (List (WindowEffect msg))
-    | EffToServer ToServer
-
-
-toServer : ToServer -> WindowEffect msg
-toServer =
-    EffToServer
+toServer : ToServer -> Cmd msg
+toServer val =
+    fromWindow (Debug.todo "REPLACE_ME::_Json_wrap(val)")
