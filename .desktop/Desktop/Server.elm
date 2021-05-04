@@ -275,6 +275,26 @@ fromEffect effect model =
                 |> Cmd.map ServerMessage
             )
 
+        EffWriteFile config ->
+            ( model
+            , Interop.evalAsync
+                "FS_WRITE_FILE"
+                (Json.Encode.object
+                    [ ( "path", Json.Encode.string config.path )
+                    , ( "data", Json.Encode.string config.data )
+                    , ( "options"
+                      , Json.Encode.object
+                            [ ( "encoding", Json.Encode.string config.encoding )
+                            , ( "flag", Effect.encodeFlag config.flag )
+                            ]
+                      )
+                    ]
+                )
+                (Json.Decode.succeed ())
+                |> Task.attempt (Result.mapError Error.toString >> config.onWrite)
+                |> Cmd.map ServerMessage
+            )
+
         EffToWindow windowId val ->
             ( model
             , fromServer

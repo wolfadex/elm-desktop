@@ -16,6 +16,7 @@ module Desktop.Server.Effect exposing
     , Encoding
     , Flag(..)
     , readFile
+    , writeFile
     , encodeFlag
     )
 
@@ -54,6 +55,7 @@ module Desktop.Server.Effect exposing
 @docs Encoding
 @docs Flag
 @docs readFile
+@docs writeFile
 
 -}
 
@@ -174,6 +176,7 @@ type ServerEffect msg
     | EffCommand (Command msg)
     | EffToWindow Int ToWindow
     | EffReadFile { encoding : Encoding, flag : Flag, onRead : Result String File -> msg, path : Path }
+    | EffWriteFile { path : Path, encoding : Encoding, flag : Flag, onWrite : Result String () -> msg, data : String }
 
 
 {-| The command you want to run, and its arguments.
@@ -260,6 +263,13 @@ readFile : { encoding : Encoding, flag : Flag, onRead : Result String File -> ms
 readFile { encoding, flag, onRead } path =
     EffReadFile
         { encoding = encoding, flag = flag, onRead = onRead, path = path }
+
+
+{-| -}
+writeFile : { path : Path, encoding : Encoding, flag : Flag, onWrite : Result String () -> msg } -> String -> ServerEffect msg
+writeFile { encoding, flag, onWrite, path } data =
+    EffWriteFile
+        { encoding = encoding, flag = flag, onWrite = onWrite, path = path, data = data }
 
 
 encodeFlag : Flag -> Value

@@ -122,6 +122,10 @@ setTimeout = (callback, time, ...args) => {
           }
           case "FS_READ_FILE":
             return fsPromises.readFile(args.path, args.options);
+          case "FS_WRITE_FILE":
+            return fsPromises
+              .writeFile(args.path, args.data, args.options)
+              .then(() => null);
           default:
             console.error(`Error: Unknown server request: "${msg}"`, args);
         }
