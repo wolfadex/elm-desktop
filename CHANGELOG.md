@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 None
 
+## [0.3.0] - 2021-05-0?
+
+### Added
+
+- `Desktop.Server.Effect.getEnvVariable : String -> Maybe String` for getting environment variables.
+
 ## [0.2.0] - 2021-05-03
 
 ### Changed

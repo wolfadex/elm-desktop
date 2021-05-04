@@ -16,6 +16,10 @@ Object.defineProperty(Object.prototype, "__elm_interop_sync", {
       switch (msg) {
         case "PRINT_LINE":
           console.log(args);
+          result = null;
+          break;
+        case "GET_ENV":
+          result = process.env[args];
           break;
         default:
           throw new Error(`Unknown JS code to run: ${msg}`);

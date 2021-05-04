@@ -1,5 +1,8 @@
 module Desktop.Server.Effect exposing (..)
 
+import Interop
+import Json.Decode
+import Json.Encode
 import Types exposing (ToWindow)
 
 
@@ -43,3 +46,11 @@ type alias Command msg =
 toWindow : Int -> ToWindow -> ServerEffect msg
 toWindow =
     EffToWindow
+
+
+getEnvVariable : String -> Maybe String
+getEnvVariable key =
+    Interop.eval
+        { msg = "GET_ENV", args = Json.Encode.string key }
+        Json.Decode.string
+        |> Result.toMaybe
