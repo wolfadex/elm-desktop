@@ -1,6 +1,7 @@
 import { spawn } from "child_process";
 import path from "path";
 import { fileURLToPath } from "url";
+import fsPromises from "fs/promises";
 import webview from "webview";
 import WebSocket from "ws";
 import Elm from "./elm.mjs";
@@ -119,6 +120,8 @@ setTimeout = (callback, time, ...args) => {
             );
             return appWindow;
           }
+          case "FS_READ_FILE":
+            return fsPromises.readFile(args.path, args.options);
           default:
             console.error(`Error: Unknown server request: "${msg}"`, args);
         }

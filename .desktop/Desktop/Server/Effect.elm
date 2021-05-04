@@ -11,6 +11,12 @@ module Desktop.Server.Effect exposing
     , Command
     , runCommand
     , toWindow
+    , File
+    , Path
+    , Encoding
+    , Flag(..)
+    , readFile
+    , encodeFlag
     )
 
 {-| A collection of synchronous and asynchronous effects for the Server side of your app. These are effects because they are in some way interacting with things outside the confines of your app.
@@ -40,12 +46,21 @@ module Desktop.Server.Effect exposing
 @docs runCommand
 @docs toWindow
 
+
+### File System
+
+@docs File
+@docs Path
+@docs Encoding
+@docs Flag
+@docs readFile
+
 -}
 
 import Error
 import Interop
 import Json.Decode
-import Json.Encode
+import Json.Encode exposing (Value)
 import Types exposing (ToWindow)
 
 
@@ -158,6 +173,7 @@ type ServerEffect msg
     | Effbatch (List (ServerEffect msg))
     | EffCommand (Command msg)
     | EffToWindow Int ToWindow
+    | EffReadFile { encoding : Encoding, flag : Flag, onRead : Result String File -> msg, path : Path }
 
 
 {-| The command you want to run, and its arguments.
@@ -193,3 +209,86 @@ none =
 toWindow : Int -> ToWindow -> ServerEffect msg
 toWindow =
     EffToWindow
+
+
+
+-- FILE SYSTEM
+
+
+{-| -}
+type alias Encoding =
+    String
+
+
+{-| How you want to interacte with the file.
+
+    Append: Open file for appending. The file is created if it does not exist.
+    AppendIfDoesntExist: Like `Append` but fails if the path exists.
+    AppendAndRead: Open file for reading and appending. The file is created if it does not exist.
+    AppendAndReadIfDoesntExist: Like `AppendAndRead` but fails if the path exists.
+    Read: Open file for reading. An exception occurs if the file does not exist.
+    ReadAndWriteIfDoesntExist: Open file for reading and writing. An exception occurs if the file does not exist.
+    Write Open file for writing. The file is created (if it does not exist) or truncated (if it exists).
+    WriteIfDoesntExist: Like `Write` but fails if the path exists.
+    ReadWriteTruncate: Open file for reading and writing. The file is created (if it does not exist) or truncated (if it exists).
+
+-}
+type Flag
+    = Append
+    | AppendIfDoesntExist
+    | AppendAndRead
+    | AppendAndReadIfDoesntExist
+    | Read
+    | ReadAndWriteIfDoesntExist
+    | Write
+    | WriteIfDoesntExist
+    | ReadWriteTruncate
+
+
+{-| -}
+type alias File =
+    String
+
+
+{-| -}
+type alias Path =
+    String
+
+
+{-| -}
+readFile : { encoding : Encoding, flag : Flag, onRead : Result String File -> msg } -> Path -> ServerEffect msg
+readFile { encoding, flag, onRead } path =
+    EffReadFile
+        { encoding = encoding, flag = flag, onRead = onRead, path = path }
+
+
+encodeFlag : Flag -> Value
+encodeFlag flag =
+    Json.Encode.string <|
+        case flag of
+            Append ->
+                "a"
+
+            AppendIfDoesntExist ->
+                "ax"
+
+            AppendAndRead ->
+                "a+"
+
+            AppendAndReadIfDoesntExist ->
+                "ax+"
+
+            Read ->
+                "r"
+
+            ReadAndWriteIfDoesntExist ->
+                "r+"
+
+            Write ->
+                "w"
+
+            WriteIfDoesntExist ->
+                "wx"
+
+            ReadWriteTruncate ->
+                "w+"

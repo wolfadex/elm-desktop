@@ -1,7 +1,8 @@
 port module Desktop.Server exposing (..)
 
-import Desktop.Server.Effect exposing (ServerEffect(..))
+import Desktop.Server.Effect as Effect exposing (Flag(..), ServerEffect(..))
 import Dict exposing (Dict)
+import Error
 import Interop
 import Json.Decode exposing (Decoder)
 import Json.Encode exposing (Value)
@@ -253,6 +254,25 @@ fromEffect effect model =
                 )
                 (Json.Decode.succeed ())
                 |> Task.attempt (\_ -> NoOp)
+            )
+
+        EffReadFile config ->
+            ( model
+            , Interop.evalAsync
+                "FS_READ_FILE"
+                (Json.Encode.object
+                    [ ( "path", Json.Encode.string config.path )
+                    , ( "options"
+                      , Json.Encode.object
+                            [ ( "encoding", Json.Encode.string config.encoding )
+                            , ( "flag", Effect.encodeFlag config.flag )
+                            ]
+                      )
+                    ]
+                )
+                Json.Decode.string
+                |> Task.attempt (Result.mapError Error.toString >> config.onRead)
+                |> Cmd.map ServerMessage
             )
 
         EffToWindow windowId val ->

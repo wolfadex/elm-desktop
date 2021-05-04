@@ -17,6 +17,7 @@ None
 - `Desktop.Server.Effect.getCwd : String`
 - `Desktop.Server.Effect.setCwd : String -> Result String String`
 - `Desktop.Server.Effect.getOs : Os` and it's related `Os` type
+- `Desktop.Server.Effect.readFile` and related types `File`, `Path`, `Encoding`, `Flag`
 
 ## [0.2.0] - 2021-05-03
 
