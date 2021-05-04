@@ -32,6 +32,10 @@ Object.defineProperty(Object.prototype, "__elm_interop_sync", {
           break;
         case "CHANGE_CWD":
           process.chdir(args);
+          result = null;
+          break;
+        case "GET_PLATFORM":
+          result = process.platform;
           break;
         default:
           throw new Error(`Unknown JS code to run: ${msg}`);
