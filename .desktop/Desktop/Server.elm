@@ -27,7 +27,6 @@ init serverInit flags =
             serverInit flags
     in
     ( { serverModel = serverInited.model
-      , nextId = 0
       , window = Nothing
       }
     , Cmd.batch

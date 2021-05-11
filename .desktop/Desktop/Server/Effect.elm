@@ -153,7 +153,6 @@ decodeOsPlatform =
 
 type alias Model =
     { serverModel : ServerModel
-    , nextId : Int
     , window : Maybe Value
     }
 
