@@ -153,9 +153,7 @@ decodeOsPlatform =
 
 type alias Model =
     { serverModel : ServerModel
-    , serverCommandsStdErr : Dict Int (String -> ServerMsg)
-    , serverCommandsStdOut : Dict Int (String -> ServerMsg)
-    , serverCommandsDone : Dict Int (Int -> ServerMsg)
+    , serverCommandUpdates : Dict Int (CommandStatus -> ServerMsg)
     , nextId : Int
     , window : Maybe Value
     }
@@ -164,9 +162,7 @@ type alias Model =
 type Msg
     = NoOp
     | ServerMessage ServerMsg
-    | CommandStdErr Value
-    | CommandStdOut Value
-    | CommandDone Value
+    | CommandUpdate Value
     | WindowConnection Value
     | ToServerMessage Value
 
@@ -176,19 +172,21 @@ type Msg
 type alias Command =
     { command : String
     , arguments : List String
-    , stderr : String -> ServerMsg
-    , stdout : String -> ServerMsg
-    , done : Int -> ServerMsg
+    , onUpdate : CommandStatus -> ServerMsg
     }
+
+
+{-| -}
+type CommandStatus
+    = Complete Int
+    | Running (Result String String)
 
 
 {-| -}
 runCommand : Model -> Command -> ( Model, Cmd Msg )
 runCommand model command =
     ( { model
-        | serverCommandsStdErr = Dict.insert model.nextId command.stderr model.serverCommandsStdErr
-        , serverCommandsStdOut = Dict.insert model.nextId command.stdout model.serverCommandsStdOut
-        , serverCommandsDone = Dict.insert model.nextId command.done model.serverCommandsDone
+        | serverCommandUpdates = Dict.insert model.nextId command.onUpdate model.serverCommandUpdates
         , nextId = model.nextId + 1
       }
     , Interop.evalAsync

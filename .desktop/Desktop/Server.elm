@@ -1,6 +1,6 @@
 port module Desktop.Server exposing (..)
 
-import Desktop.Server.Effect exposing (Flag(..), Model, Msg(..))
+import Desktop.Server.Effect exposing (CommandStatus(..), Flag(..), Model, Msg(..))
 import Dict
 import Json.Decode exposing (Decoder)
 import Json.Encode exposing (Value)
@@ -27,9 +27,7 @@ init serverInit flags =
             serverInit flags
     in
     ( { serverModel = serverInited.model
-      , serverCommandsStdErr = Dict.empty
-      , serverCommandsStdOut = Dict.empty
-      , serverCommandsDone = Dict.empty
+      , serverCommandUpdates = Dict.empty
       , nextId = 0
       , window = Nothing
       }
@@ -53,21 +51,13 @@ subscriptions : (ServerModel -> Sub ServerMsg) -> Model -> Sub Msg
 subscriptions serverSubscriptions model =
     Sub.batch
         [ Sub.map ServerMessage (serverSubscriptions model.serverModel)
-        , commandStdErr CommandStdErr
-        , commandStdOut CommandStdOut
-        , commandDone CommandDone
+        , commandUpdate CommandUpdate
         , windowConnection WindowConnection
         , toServer ToServerMessage
         ]
 
 
-port commandStdErr : (Value -> msg) -> Sub msg
-
-
-port commandStdOut : (Value -> msg) -> Sub msg
-
-
-port commandDone : (Value -> msg) -> Sub msg
+port commandUpdate : (Value -> msg) -> Sub msg
 
 
 port windowConnection : (Value -> msg) -> Sub msg
@@ -101,64 +91,30 @@ update serverUpdateFromWindow serverUpdate msg model =
                 )
                 model
 
-        CommandStdErr errVal ->
-            case decodeCommandResponse Json.Decode.string errVal of
+        CommandUpdate updateVal ->
+            case decodeCommandUpdate updateVal of
                 Err _ ->
                     ( model, Cmd.none )
 
                 Ok ( id, value ) ->
-                    case Dict.get id model.serverCommandsStdErr of
+                    case Dict.get id model.serverCommandUpdates of
                         Nothing ->
-                            let
-                                _ =
-                                    Debug.log "no msg" id
-                            in
-                            ( model, Cmd.none )
+                            Debug.todo ("Message id not found: " ++ String.fromInt id)
 
                         Just serverMsg ->
-                            updateServer (serverUpdate (serverMsg value)) model
+                            updateServer (serverUpdate (serverMsg value)) <|
+                                case value of
+                                    Running _ ->
+                                        model
 
-        CommandStdOut outVal ->
-            case decodeCommandResponse Json.Decode.string outVal of
-                Err _ ->
-                    ( model, Cmd.none )
+                                    Complete _ ->
+                                        { model | serverCommandUpdates = Dict.remove id model.serverCommandUpdates }
 
-                Ok ( id, value ) ->
-                    case Dict.get id model.serverCommandsStdOut of
-                        Nothing ->
-                            let
-                                _ =
-                                    Debug.log "no msg" id
-                            in
-                            ( model, Cmd.none )
 
-                        Just serverMsg ->
-                            updateServer (serverUpdate (serverMsg value)) model
-
-        CommandDone doneVal ->
-            case decodeCommandResponse Json.Decode.int doneVal of
-                Err _ ->
-                    ( model, Cmd.none )
-
-                Ok ( id, value ) ->
-                    let
-                        tempModel =
-                            { model
-                                | serverCommandsStdErr = Dict.remove id model.serverCommandsStdErr
-                                , serverCommandsStdOut = Dict.remove id model.serverCommandsStdOut
-                                , serverCommandsDone = Dict.remove id model.serverCommandsDone
-                            }
-                    in
-                    case Dict.get id model.serverCommandsDone of
-                        Nothing ->
-                            let
-                                _ =
-                                    Debug.log "no msg" id
-                            in
-                            ( tempModel, Cmd.none )
-
-                        Just serverMsg ->
-                            updateServer (serverUpdate (serverMsg value)) tempModel
+decodeCommandUpdate : Value -> Result String ( Int, CommandStatus )
+decodeCommandUpdate =
+    Json.Decode.decodeValue decodeCommandResponseHelper
+        >> Result.mapError (Json.Decode.errorToString >> Debug.log "parse command err")
 
 
 decodeToServerMessage : Decoder ToServer
@@ -184,14 +140,38 @@ updateServer serverUpdate model =
     ( { model | serverModel = serverModel }, Cmd.map ServerMessage serverEffect )
 
 
-decodeCommandResponse : Decoder a -> Value -> Result String ( Int, a )
-decodeCommandResponse valDecoder =
-    Json.Decode.decodeValue (decodeCommandResponseHelper valDecoder)
+decodeCommandResponse : Value -> Result String ( Int, CommandStatus )
+decodeCommandResponse =
+    Json.Decode.decodeValue decodeCommandResponseHelper
         >> Result.mapError (Json.Decode.errorToString >> Debug.log "parse command err")
 
 
-decodeCommandResponseHelper : Decoder a -> Decoder ( Int, a )
-decodeCommandResponseHelper valDecoder =
+decodeCommandResponseHelper : Decoder ( Int, CommandStatus )
+decodeCommandResponseHelper =
     Json.Decode.map2 Tuple.pair
         (Json.Decode.field "id" Json.Decode.int)
-        (Json.Decode.field "value" valDecoder)
+        (Json.Decode.field "update" decodeCommandUpdateHelper)
+
+
+decodeCommandUpdateHelper : Decoder CommandStatus
+decodeCommandUpdateHelper =
+    Json.Decode.maybe (Json.Decode.field "done" Json.Decode.int)
+        |> Json.Decode.andThen
+            (\maybeExitCode ->
+                case maybeExitCode of
+                    Just exitCode ->
+                        Json.Decode.succeed (Complete exitCode)
+
+                    Nothing ->
+                        Json.Decode.map2
+                            (\isOk val ->
+                                Running <|
+                                    if isOk then
+                                        Ok val
+
+                                    else
+                                        Err val
+                            )
+                            (Json.Decode.at [ "update", "ok" ] Json.Decode.bool)
+                            (Json.Decode.at [ "update", "value" ] Json.Decode.string)
+            )

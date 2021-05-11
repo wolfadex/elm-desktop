@@ -88,20 +88,26 @@ setTimeout = (callback, time, ...args) => {
               const decoder = new TextDecoder("utf-8");
               const value = await decoder.decode(data);
 
-              elmServerApp.ports.commandStdOut.send({ id: args.id, value });
+              elmServerApp.ports.commandUpdate({
+                id: args.id,
+                update: { ok: true, done: null, value },
+              });
             });
 
             cmdProcess.stderr.on("data", async (data) => {
               const decoder = new TextDecoder("utf-8");
               const value = await decoder.decode(data);
 
-              elmServerApp.ports.commandStdErr.send({ id: args.id, value });
+              elmServerApp.ports.commandUpdate({
+                id: args.id,
+                update: { ok: false, done: null, value },
+              });
             });
 
             cmdProcess.on("exit", async (code) => {
-              elmServerApp.ports.commandDone.send({
+              elmServerApp.ports.commandUpdate({
                 id: args.id,
-                value: code,
+                update: { done: code },
               });
             });
 
