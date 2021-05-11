@@ -1,7 +1,7 @@
 port module Desktop.Server exposing (..)
 
-import Desktop.Server.Effect exposing (CommandStatus(..), Flag(..), Model, Msg(..))
-import Dict
+import Desktop.Server.Command exposing (CommandStatus(..))
+import Desktop.Server.Effect exposing (Flag(..), Model, Msg(..))
 import Json.Decode exposing (Decoder)
 import Json.Encode exposing (Value)
 import Server
@@ -27,7 +27,6 @@ init serverInit flags =
             serverInit flags
     in
     ( { serverModel = serverInited.model
-      , serverCommandUpdates = Dict.empty
       , nextId = 0
       , window = Nothing
       }
@@ -57,7 +56,7 @@ subscriptions serverSubscriptions model =
         ]
 
 
-port commandUpdate : (Value -> msg) -> Sub msg
+port commandUpdate : (( Value, Value ) -> msg) -> Sub msg
 
 
 port windowConnection : (Value -> msg) -> Sub msg
@@ -91,30 +90,19 @@ update serverUpdateFromWindow serverUpdate msg model =
                 )
                 model
 
-        CommandUpdate updateVal ->
-            case decodeCommandUpdate updateVal of
-                Err _ ->
-                    ( model, Cmd.none )
+        CommandUpdate ( responseHandler, value ) ->
+            case Json.Decode.decodeValue decodeCommandUpdate value of
+                Err err ->
+                    Debug.todo ("Unexpected error: " ++ Json.Decode.errorToString err)
 
-                Ok ( id, value ) ->
-                    case Dict.get id model.serverCommandUpdates of
-                        Nothing ->
-                            Debug.todo ("Message id not found: " ++ String.fromInt id)
-
-                        Just serverMsg ->
-                            updateServer (serverUpdate (serverMsg value)) <|
-                                case value of
-                                    Running _ ->
-                                        model
-
-                                    Complete _ ->
-                                        { model | serverCommandUpdates = Dict.remove id model.serverCommandUpdates }
-
-
-decodeCommandUpdate : Value -> Result String ( Int, CommandStatus )
-decodeCommandUpdate =
-    Json.Decode.decodeValue decodeCommandResponseHelper
-        >> Result.mapError (Json.Decode.errorToString >> Debug.log "parse command err")
+                Ok updateVal ->
+                    let
+                        serverMsg =
+                            Debug.todo "REPLACE_ME::_Json_unwrap(responseHandler)"
+                    in
+                    updateServer
+                        (serverUpdate (serverMsg updateVal))
+                        model
 
 
 decodeToServerMessage : Decoder ToServer
@@ -140,21 +128,8 @@ updateServer serverUpdate model =
     ( { model | serverModel = serverModel }, Cmd.map ServerMessage serverEffect )
 
 
-decodeCommandResponse : Value -> Result String ( Int, CommandStatus )
-decodeCommandResponse =
-    Json.Decode.decodeValue decodeCommandResponseHelper
-        >> Result.mapError (Json.Decode.errorToString >> Debug.log "parse command err")
-
-
-decodeCommandResponseHelper : Decoder ( Int, CommandStatus )
-decodeCommandResponseHelper =
-    Json.Decode.map2 Tuple.pair
-        (Json.Decode.field "id" Json.Decode.int)
-        (Json.Decode.field "update" decodeCommandUpdateHelper)
-
-
-decodeCommandUpdateHelper : Decoder CommandStatus
-decodeCommandUpdateHelper =
+decodeCommandUpdate : Decoder CommandStatus
+decodeCommandUpdate =
     Json.Decode.maybe (Json.Decode.field "done" Json.Decode.int)
         |> Json.Decode.andThen
             (\maybeExitCode ->
@@ -172,6 +147,6 @@ decodeCommandUpdateHelper =
                                     else
                                         Err val
                             )
-                            (Json.Decode.at [ "update", "ok" ] Json.Decode.bool)
-                            (Json.Decode.at [ "update", "value" ] Json.Decode.string)
+                            (Json.Decode.field "ok" Json.Decode.bool)
+                            (Json.Decode.field "value" Json.Decode.string)
             )

@@ -39,7 +39,7 @@ port module Desktop.Server.Effect exposing (..)
 
 -}
 
-import Dict exposing (Dict)
+import Desktop.Server.Command exposing (CommandStatus)
 import Error
 import Interop
 import Json.Decode
@@ -153,7 +153,6 @@ decodeOsPlatform =
 
 type alias Model =
     { serverModel : ServerModel
-    , serverCommandUpdates : Dict Int (CommandStatus -> ServerMsg)
     , nextId : Int
     , window : Maybe Value
     }
@@ -162,7 +161,7 @@ type alias Model =
 type Msg
     = NoOp
     | ServerMessage ServerMsg
-    | CommandUpdate Value
+    | CommandUpdate ( Value, Value )
     | WindowConnection Value
     | ToServerMessage Value
 
@@ -172,33 +171,21 @@ type Msg
 type alias Command =
     { command : String
     , arguments : List String
-    , onUpdate : CommandStatus -> ServerMsg
     }
 
 
 {-| -}
-type CommandStatus
-    = Complete Int
-    | Running (Result String String)
-
-
-{-| -}
-runCommand : Model -> Command -> ( Model, Cmd Msg )
-runCommand model command =
-    ( { model
-        | serverCommandUpdates = Dict.insert model.nextId command.onUpdate model.serverCommandUpdates
-        , nextId = model.nextId + 1
-      }
-    , Interop.evalAsync
+runCommand : Command -> (CommandStatus -> ServerMsg) -> Task String ()
+runCommand command responseHnadler =
+    Interop.evalAsync
         "RUN_COMMAND"
         (Json.Encode.object
             [ ( "cmd", Json.Encode.list Json.Encode.string (command.command :: command.arguments) )
-            , ( "id", Json.Encode.int model.nextId )
+            , ( "responseHandler", Debug.todo "REPLACE_ME::_Json_wrap(responseHnadler)" )
             ]
         )
         (Json.Decode.succeed ())
-        |> Task.attempt (\_ -> NoOp)
-    )
+        |> Task.mapError Error.toString
 
 
 port fromServer : Value -> Cmd msg
