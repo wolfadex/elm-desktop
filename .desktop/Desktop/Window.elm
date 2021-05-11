@@ -1,7 +1,6 @@
 port module Desktop.Window exposing (..)
 
 import Browser
-import Desktop.Window.Effect exposing (WindowEffect(..))
 import Html exposing (Html)
 import Json.Decode exposing (Decoder)
 import Json.Encode exposing (Value)
@@ -25,7 +24,7 @@ type alias Model =
 
 
 init :
-    (Value -> ( WindowModel, WindowEffect WindowMsg ))
+    (Value -> ( WindowModel, Cmd WindowMsg ))
     -> Value
     -> ( Model, Cmd Msg )
 init windowInit flags =
@@ -33,8 +32,9 @@ init windowInit flags =
         ( windowModel, windowEffect ) =
             windowInit flags
     in
-    fromEffect windowEffect
-        { windowModel = windowModel }
+    ( { windowModel = windowModel }
+    , Cmd.map WindowMessage windowEffect
+    )
 
 
 subscriptions : (WindowModel -> Sub WindowMsg) -> Model -> Sub Msg
@@ -48,9 +48,6 @@ subscriptions windowSubscriptions model =
 port toWindow : (Value -> msg) -> Sub msg
 
 
-port fromWindow : Value -> Cmd msg
-
-
 type Msg
     = NoOp
     | WindowMessage WindowMsg
@@ -58,8 +55,8 @@ type Msg
 
 
 update :
-    (ToWindow -> WindowModel -> ( WindowModel, WindowEffect WindowMsg ))
-    -> (WindowMsg -> WindowModel -> ( WindowModel, WindowEffect WindowMsg ))
+    (ToWindow -> WindowModel -> ( WindowModel, Cmd WindowMsg ))
+    -> (WindowMsg -> WindowModel -> ( WindowModel, Cmd WindowMsg ))
     -> Msg
     -> Model
     -> ( Model, Cmd Msg )
@@ -89,36 +86,15 @@ decodeToWindowMessage =
         (Json.Decode.field "msg" Json.Decode.string)
 
 
-updateWindow : (WindowModel -> ( WindowModel, WindowEffect WindowMsg )) -> Model -> ( Model, Cmd Msg )
+updateWindow : (WindowModel -> ( WindowModel, Cmd WindowMsg )) -> Model -> ( Model, Cmd Msg )
 updateWindow windowUpdate model =
     let
         ( windowModel, windowEffect ) =
             windowUpdate model.windowModel
     in
-    fromEffect windowEffect { model | windowModel = windowModel }
-
-
-fromEffect : WindowEffect WindowMsg -> Model -> ( Model, Cmd Msg )
-fromEffect effect model =
-    case effect of
-        EffNone ->
-            ( model, Cmd.none )
-
-        Effbatch effects ->
-            List.foldl
-                (\eff ( resModel, resCmds ) ->
-                    Tuple.mapSecond
-                        (\cmd -> cmd :: resCmds)
-                        (fromEffect eff resModel)
-                )
-                ( model, [] )
-                effects
-                |> Tuple.mapSecond Cmd.batch
-
-        EffToServer val ->
-            ( model
-            , fromWindow (Debug.todo "REPLACE_ME::_Json_wrap(val)")
-            )
+    ( { model | windowModel = windowModel }
+    , Cmd.map WindowMessage windowEffect
+    )
 
 
 view : (WindowModel -> Html WindowMsg) -> Model -> Html Msg

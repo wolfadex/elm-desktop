@@ -1,6 +1,6 @@
 module Window exposing (..)
 
-import Desktop.Window.Effect as Effect exposing (WindowEffect)
+import Desktop.Window.Effect as Effect
 import Html exposing (Html)
 import Html.Attributes as Attrs
 import Html.Events as Events
@@ -21,10 +21,10 @@ type alias Model =
     WindowModel
 
 
-init : Value -> ( Model, WindowEffect WindowMsg )
+init : Value -> ( Model, Cmd WindowMsg )
 init _ =
     ( { count = 0 }
-    , Effect.none
+    , Cmd.none
     )
 
 
@@ -33,17 +33,17 @@ subscriptions _ =
     Sub.none
 
 
-update : WindowMsg -> Model -> ( Model, WindowEffect WindowMsg )
+update : WindowMsg -> Model -> ( Model, Cmd WindowMsg )
 update msg model =
     case msg of
         WinNoOp ->
-            ( model, Effect.none )
+            ( model, Cmd.none )
 
         Increment ->
-            ( { model | count = model.count + 1 }, Effect.none )
+            ( { model | count = model.count + 1 }, Cmd.none )
 
         Decrement ->
-            ( { model | count = model.count - 1 }, Effect.none )
+            ( { model | count = model.count - 1 }, Cmd.none )
 
         IncrementMany ->
             ( model
@@ -56,14 +56,14 @@ update msg model =
             )
 
 
-updateFromServer : ToWindow -> Model -> ( Model, WindowEffect WindowMsg )
+updateFromServer : ToWindow -> Model -> ( Model, Cmd WindowMsg )
 updateFromServer msg model =
     case msg of
         TWNoOp ->
-            ( model, Effect.none )
+            ( model, Cmd.none )
 
         SetCount amount ->
-            ( { model | count = amount }, Effect.none )
+            ( { model | count = amount }, Cmd.none )
 
 
 view : Model -> Html WindowMsg

@@ -1,6 +1,6 @@
 module Server exposing (..)
 
-import Desktop.Server.Effect as Effect exposing (ServerEffect)
+import Desktop.Server.Effect as Effect
 import Json.Encode exposing (Value)
 import Types exposing (ServerModel, ServerMsg(..), ToServer(..), ToWindow(..), WindowMsg(..))
 
@@ -24,14 +24,14 @@ init :
         , width : Int
         , height : Int
         , model : Model
-        , effect : ServerEffect ServerMsg
+        , effect : Cmd ServerMsg
         }
 init _ =
     { title = "Desktop Counter"
     , width = 800
     , height = 600
     , model = {}
-    , effect = Effect.none
+    , effect = Cmd.none
     }
 
 
@@ -40,21 +40,21 @@ subscriptions _ =
     Sub.none
 
 
-update : ServerMsg -> Model -> ( Model, ServerEffect ServerMsg )
+update : ServerMsg -> Model -> ( Model, Cmd ServerMsg )
 update msg model =
     case msg of
         SerNoOp ->
-            ( model, Effect.none )
+            ( model, Cmd.none )
 
 
-updateFromWindow : Int -> ToServer -> Model -> ( Model, ServerEffect ServerMsg )
-updateFromWindow windowId msg model =
+updateFromWindow : Value -> ToServer -> Model -> ( Model, Cmd ServerMsg )
+updateFromWindow window msg model =
     case msg of
         TSNoOp ->
-            ( model, Effect.none )
+            ( model, Cmd.none )
 
         IncrementBy change amount ->
-            ( model, Effect.toWindow windowId (SetCount (amount + change)) )
+            ( model, Effect.toWindow window (SetCount (amount + change)) )
 
         DecrementBy change amount ->
-            ( model, Effect.toWindow windowId (SetCount (amount + change)) )
+            ( model, Effect.toWindow window (SetCount (amount + change)) )
