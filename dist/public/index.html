@@ -4,22 +4,17 @@
     <title>Carl Window?</title>
   </head>
   <body>
-    <h1 id="elm-node">Loading...</h1>
+    <h1 id="elm-node">Loading...?</h1>
     <script src="elm.js"></script>
     <script>
-      const app = Elm.Desktop.Window.init({
-        node: document.getElementById("elm-node"),
-      });
+      window.elmDesktop.setId(function (windowId) {
+        const app = Elm.Window.init({
+          node: document.getElementById("elm-node"),
+          flags: { windowId: windowId, userFlags: null },
+        });
 
-      const socket = new WebSocket("ws://localhost:8080");
-
-      // Listen for messages
-      socket.addEventListener("message", function (event) {
-        app.ports.toWindow.send(JSON.parse(event.data));
-      });
-
-      app.ports.fromWindow.subscribe(function frogWindow(msg) {
-        socket.send(JSON.stringify(msg));
+        window.elmDesktop.toWindow(app.ports.fromBackendInternal.send);
+        app.ports.toBackendInternal.subscribe(window.elmDesktop.fromWindow);
       });
     </script>
   </body>

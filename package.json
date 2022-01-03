@@ -1,17 +1,17 @@
 {
   "name": "elm-desktop",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "",
+  "main": "main.js",
   "scripts": {
-    "dev:build": "./dev.sh",
-    "dev:start": "node dist/server.mjs"
+    "start": "electron .",
+    "build-dev": "./dev.sh"
   },
   "author": "Wolfgang Schuster",
   "volta": {
-    "node": "16.0.0"
+    "node": "16.13.1"
   },
   "dependencies": {
-    "webview": "^1.0.0",
-    "ws": "^7.4.5"
+    "electron": "^16.0.5"
   }
 }

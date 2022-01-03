@@ -2,18 +2,19 @@
 
 echo "Building Elm..."
 
-elm make .desktop/Desktop/Server.elm .desktop/Desktop/Window.elm --output=dist/public/elm.js
-
-# find and replace
-node dev.js
-
-cp dist/public/elm.js dist/elm.mjs
+elm make src/Backend.elm --output=dist/elm.js
 
 # change the cmpiled elm file to not immediately call the compiled function
-perl -i -pe 's/\(function\(scope/function init\(scope/g' dist/elm.mjs
-perl -i -pe 's/}\(this\)\);/}/g' dist/elm.mjs
+perl -i -pe 's/\(function\(scope/function init\(scope/g' dist/elm.js
+perl -i -pe 's/}\(this\)\);/}/g' dist/elm.js
 
-# export the compiled function as the default export
-echo "\n\nconst scope = {};\ninit(scope);\nexport default scope.Elm;" >> dist/elm.mjs
+# export the compiled function as the default export (for Node)
+echo "\n\nconst scope = {};\ninit(scope);\nmodule.exports = scope.Elm;" >> dist/elm.js
 
-echo "Elm compiled"
+echo "Backend compiled"
+
+elm make src/Window.elm --output=dist/public/elm.js
+
+echo "Frontend compiled"
+
+echo "Build complete"

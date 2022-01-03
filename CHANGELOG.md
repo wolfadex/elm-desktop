@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 None
 
+## [0.3.0] - 2022-01-02
+
+### Changed
+
+- Complete overhaul to use Electron and no cheats
+
 ## [0.2.0] - 2021-05-03
 
 ### Changed
