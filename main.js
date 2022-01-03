@@ -8,20 +8,20 @@ const windows = {};
 
 let elmApp = null;
 
-function createWindow(config) {
-  const finalConfig = {
-    ...config,
-    ...(config.top ? { top: windows[config.top] } : {}),
+function createWindow({ moduleName, options }) {
+  const finalOptions = {
+    ...options,
+    ...(options.top ? { top: windows[options.top] } : {}),
     webPreferences: {
-      ...(config.webPreferences || {}),
+      ...(options.webPreferences || {}),
       preload: path.join(__dirname, "preload.js"),
     },
   };
 
   const windowId = crypto.randomUUID();
-  const window = new BrowserWindow(finalConfig);
+  const window = new BrowserWindow(finalOptions);
   windows[windowId] = window;
-  window.loadFile(path.join(__dirname, "dist", "public", "index.html"));
+  window.loadFile(path.join(__dirname, "dist", "public", `${moduleName}.html`));
   // Open the DevTools.
   window.webContents.openDevTools();
   window.webContents.on("did-finish-load", () => {
@@ -33,7 +33,6 @@ function createWindow(config) {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
-  // createWindow();
   elmApp = Elm.Backend.init();
   elmApp.ports.createWindowInternal.subscribe(createWindow);
   elmApp.ports.toWindowInternal.subscribe(function (data) {

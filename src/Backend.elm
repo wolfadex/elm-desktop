@@ -29,7 +29,7 @@ init () =
     ( {}
     , Desktop.Window.defaultOptions
         |> Desktop.Window.withPosition { x = 0, y = -1 }
-        |> Desktop.Window.create
+        |> Desktop.Window.create "Window.Main"
     )
 
 

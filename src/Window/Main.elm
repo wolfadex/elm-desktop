@@ -1,4 +1,4 @@
-module Window exposing (..)
+module Window.Main exposing (..)
 
 import Browser exposing (Document)
 import Desktop.Effect exposing (Effect)

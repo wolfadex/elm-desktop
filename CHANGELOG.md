@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 None
 
+## [0.3.1] - 2022-01-03
+
+### Changed
+
+- Switched to a node compile step instead of bash
+
+### Added
+
+- Change (build) setup to allow many `Window`s
+
 ## [0.3.0] - 2022-01-02
 
 ### Changed

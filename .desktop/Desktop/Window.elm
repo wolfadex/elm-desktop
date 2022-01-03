@@ -202,9 +202,16 @@ toBackend toWindowC windowId toBackendMsg =
 port createWindowInternal : Value -> Cmd msg
 
 
-create : Options -> Effect msg
-create config =
-    Desktop.Effect.fromCmd (createWindowInternal (encodeWindowConfig config))
+create : String -> Options -> Effect msg
+create moduleName config =
+    Desktop.Effect.fromCmd
+        (createWindowInternal
+            (Json.Encode.object
+                [ ( "options", encodeWindowConfig config )
+                , ( "moduleName", Json.Encode.string moduleName )
+                ]
+            )
+        )
 
 
 encodeWindowConfig : Options -> Value
