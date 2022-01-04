@@ -1,17 +1,21 @@
-const { contextBridge, ipcRenderer } = require("electron");
+const { contextBridge } = require("electron");
+const Store = require("electron-store");
+
+let store = null;
 
 contextBridge.exposeInMainWorld("elmDesktop", {
-  setId(callback) {
-    ipcRenderer.on("set-id", function (_, windowId) {
-      callback(windowId);
-    });
+  save(data) {
+    if (store === null) {
+      store = new Store();
+    }
+
+    store.set("saved-data", data);
   },
-  toWindow(callback) {
-    ipcRenderer.on("to-window", function (_, data) {
-      callback(data);
-    });
-  },
-  fromWindow(data) {
-    ipcRenderer.send("from-window", data);
+  load(callback) {
+    if (store === null) {
+      store = new Store();
+    }
+
+    callback(store.get("saved-data"));
   },
 });

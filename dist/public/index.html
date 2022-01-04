@@ -7,14 +7,15 @@
     <h1 id="elm-node">Loading...?</h1>
     <script src="elm.js"></script>
     <script>
-      window.elmDesktop.setId(function (windowId) {
-        const app = Elm.Window.init({
-          node: document.getElementById("elm-node"),
-          flags: { windowId: windowId, userFlags: null },
-        });
-
-        window.elmDesktop.toWindow(app.ports.fromBackendInternal.send);
-        app.ports.toBackendInternal.subscribe(window.elmDesktop.fromWindow);
+      const app = Elm.Desktop.Window.init({
+        node: document.getElementById("elm-node"),
+      });
+      app.ports.saveModel.subscribe(function (data) {
+        window.elmDesktop.save(data);
+      });
+      window.elmDesktop.load(function (data) {
+        console.log(data);
+        app.ports.savedModelLoaded.send(data);
       });
     </script>
   </body>

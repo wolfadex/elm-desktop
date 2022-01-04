@@ -12,9 +12,11 @@
     "node": "16.13.1"
   },
   "dependencies": {
-    "electron": "^16.0.5"
+    "electron": "^16.0.5",
+    "electron-store": "^8.0.1"
   },
   "devDependencies": {
+    "elm-review": "^2.7.0",
     "node-elm-compiler": "^5.0.6"
   }
 }

@@ -6,9 +6,7 @@ const Elm = require("./dist/elm.js");
 
 const windows = {};
 
-let elmApp = null;
-
-function createWindow({ moduleName, options }) {
+function createWindow(options) {
   const finalOptions = {
     ...options,
     ...(options.top ? { top: windows[options.top] } : {}),
@@ -18,26 +16,18 @@ function createWindow({ moduleName, options }) {
     },
   };
 
-  const windowId = crypto.randomUUID();
   const window = new BrowserWindow(finalOptions);
-  windows[windowId] = window;
-  window.loadFile(path.join(__dirname, "dist", "public", `${moduleName}.html`));
+  window.loadFile(path.join(__dirname, "dist", "public", "index.html"));
   // Open the DevTools.
   window.webContents.openDevTools();
-  window.webContents.on("did-finish-load", () => {
-    window.send("set-id", windowId);
-  });
 }
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
-  elmApp = Elm.Backend.init();
+  const elmApp = Elm.Desktop.Backend.init();
   elmApp.ports.createWindowInternal.subscribe(createWindow);
-  elmApp.ports.toWindowInternal.subscribe(function (data) {
-    windows[data.windowId].send("to-window", data);
-  });
 
   app.on("activate", function () {
     // On macOS it's common to re-create a window in the app when the
@@ -51,8 +41,4 @@ app.whenReady().then(() => {
 // explicitly with Cmd + Q.
 app.on("window-all-closed", function () {
   if (process.platform !== "darwin") app.quit();
-});
-
-ipcMain.on("from-window", function (_, data) {
-  elmApp.ports.fromWindowInternal.send(data);
 });
