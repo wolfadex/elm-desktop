@@ -1,0 +1,5 @@
+[
+  {
+    "command": ["mise", "run", "dev-elm"]
+  }
+]

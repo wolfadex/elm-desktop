@@ -1,0 +1,28 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Hello World!</title>
+    <link rel="stylesheet" href="index.css" />
+  </head>
+  <body>
+    <h1>💖 Hello World!</h1>
+    <p>Welcome to your Electron application.</p>
+    <script src="frontend.js""></script>
+    <script>
+      var windowId;
+      electronAPI.onInitialize((id) => {
+        windowId = id;
+      });
+      var app = Elm.Frontend.init()
+
+      electronAPI.onFromBackend(function(msg) {
+        app.ports.toFrontend.send(msg)
+      })
+
+      app.ports.sendToBackend.subscribe(function(msg) {
+        electronAPI.sendToBackend([windowId,msg])
+      })
+    </script>
+  </body>
+</html>

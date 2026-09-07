@@ -1,0 +1,45 @@
+[env]
+# Automatically set environment variables for this project
+NODE_ENV = "development"
+ELECTRON_DISABLE_SECURITY_WARNINGS = "true"
+
+[tools]
+"asdf:asdf-community/asdf-elm" = "0.19.1"
+node = "26"
+
+"npm:@ryannhg/css-in-elm" = "1.0.0"
+"npm:elm-format" = "0.8"
+"npm:@lydell/elm-json" = "0.2.13-1"
+"npm:elm-review" = "2.13"
+"npm:run-pty" = "5.0.0"
+
+
+[tasks.setup]
+description = "Install Node and Elm dependencies"
+run = "npm install"
+
+[tasks.build-frontend]
+description = "Compile the Elm Frontend (Renderer)"
+run = "lamdera make src/Frontend.elm --output=src/frontend.js"
+
+[tasks.build-backend]
+description = "Compile the Elm Backend (Main Process Worker)"
+run = "lamdera make src/Backend.elm --output=src/backend.js"
+
+[tasks.build]
+description = "Build both Frontend and Backend Elm apps"
+depends = ["build-frontend", "build-backend"]
+
+[tasks.dev]
+description = "Run the Electron app in development mode"
+depends = ["build"]
+run = "electron-forge start"
+
+[tasks.dist]
+description = "Build for production and package the app with electron-builder"
+depends = ["build"]
+run = "electron-builder"
+
+[tasks.clean]
+description = "Remove build artifacts"
+run = "rm -rf dist node_modules/.cache"

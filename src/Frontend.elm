@@ -1,0 +1,54 @@
+module Frontend exposing (main)
+
+import Browser
+import Html exposing (button, div, text)
+import Html.Events exposing (onClick)
+import Jukai
+import Jukai.Frontend
+import Types exposing (FrontendModel, FrontendMsg(..), ToBackend(..), ToFrontend(..))
+
+
+main : Program () FrontendModel Jukai.Frontend.Msg
+main =
+    Jukai.Frontend.application
+        { init = init
+        , update = update
+        , updateFromBackend = updateFromBackend
+        , view = view
+        , subscriptions = \_ -> Sub.none
+        }
+
+
+init : () -> ( FrontendModel, Cmd FrontendMsg )
+init _ =
+    ( { status = "idle" }
+    , Cmd.none
+    )
+
+
+update : FrontendMsg -> FrontendModel -> ( FrontendModel, Cmd FrontendMsg )
+update msg model =
+    case msg of
+        UserClickedPing ->
+            ( { model | status = "waiting for pong..." }
+            , Jukai.Frontend.sendToBackend Ping
+            )
+
+
+updateFromBackend : ToFrontend -> FrontendModel -> ( FrontendModel, Cmd FrontendMsg )
+updateFromBackend msg model =
+    case msg of
+        Pong ->
+            ( { model | status = "got pong!" }, Cmd.none )
+
+
+view : FrontendModel -> Browser.Document FrontendMsg
+view model =
+    { title = "Elm + Electron + Lamdera wire demo"
+    , body =
+        [ div []
+            [ button [ onClick UserClickedPing ] [ text "Ping" ]
+            , div [] [ text ("status: " ++ model.status) ]
+            ]
+        ]
+    }
