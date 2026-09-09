@@ -145,4 +145,3 @@ class Response {
 }
 
 export default HttpHijack.create;
-// module.exports = HttpHijack.create;

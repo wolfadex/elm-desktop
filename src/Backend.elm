@@ -5,7 +5,11 @@ import Desktop.Backend
 import Types exposing (BackendModel, BackendMsg(..), ToBackend(..), ToFrontend(..))
 
 
-main : Program () BackendModel Desktop.Backend.Msg
+type alias Flags =
+    {}
+
+
+main : Program Flags BackendModel Desktop.Backend.Msg
 main =
     Desktop.Backend.worker
         { init = init
@@ -15,12 +19,14 @@ main =
         }
 
 
-init : () -> ( BackendModel, Cmd BackendMsg )
-init _ =
+init : Flags -> ( BackendModel, Cmd BackendMsg )
+init {} =
     ( { pingsReceived = 0
       , window = Nothing
       }
-    , Desktop.openWindow WindowOpened
+      -- , Desktop.openWindow WindowOpened
+    , Desktop.openDebugWindow Debug.todo
+        WindowOpened
         { width = 800
         , height = 600
         , frame = True

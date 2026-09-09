@@ -3,7 +3,8 @@ const path = require("node:path");
 require("./XMLHttpRequest.js");
 const httpHijack = require("./http-hijack.js").default;
 
-const { Elm } = require("../backend.js");
+const { Elm } = require("../elm-backend.js");
+const backend = require("../backend.js");
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require("electron-squirrel-startup")) {
@@ -55,7 +56,11 @@ function openWindow(options, showDevtools) {
 }
 
 function initializeElm() {
-  elmApp = Elm.Backend.init();
+  const flags = backend.flags();
+
+  elmApp = Elm.Backend.init({ flags: flags });
+
+  backend.ports(elmApp);
 
   elmApp.ports.sendToFrontend.subscribe(function ([windowId, msg]) {
     const window = windows[windowId];

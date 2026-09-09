@@ -19,14 +19,14 @@ run = "npm install"
 
 [tasks.build-frontend]
 description = "Compile the Elm Frontend (Renderer)"
-run = "lamdera make src/Frontend.elm --output=src/frontend.js"
+run = "lamdera make src/Frontend.elm --output=src/elm-frontend.js"
 
 [tasks.build-backend]
 description = "Compile the Elm Backend (Main Process Worker)"
 run = """
-lamdera make src/Backend.elm --output=src/backend.js
-echo 'function $author$project$LamderaHelpers$decodeWirePayloadHeader() {}' >> src/backend.js
-echo 'function $author$project$LamderaHelpers$decodeWireAnalytics() {}' >> src/backend.js
+lamdera make src/Backend.elm --output=src/elm-backend.js
+echo 'function $author$project$LamderaHelpers$decodeWirePayloadHeader() {}' >> src/elm-backend.js
+echo 'function $author$project$LamderaHelpers$decodeWireAnalytics() {}' >> src/elm-backend.js
 """
 
 [tasks.build]

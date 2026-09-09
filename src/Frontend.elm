@@ -8,7 +8,11 @@ import Html.Events exposing (onClick)
 import Types exposing (FrontendModel, FrontendMsg(..), ToBackend(..), ToFrontend(..))
 
 
-main : Program () FrontendModel Desktop.Frontend.Msg
+type alias Flags =
+    {}
+
+
+main : Program Flags FrontendModel Desktop.Frontend.Msg
 main =
     Desktop.Frontend.application
         { init = init
@@ -19,8 +23,8 @@ main =
         }
 
 
-init : () -> ( FrontendModel, Cmd FrontendMsg )
-init _ =
+init : Flags -> ( FrontendModel, Cmd FrontendMsg )
+init {} =
     ( { status = "idle" }
     , Cmd.none
     )

@@ -5,7 +5,7 @@ dist
 build
 out
 
-src/frontend.js
-src/backend.js
+src/elm-frontend.js
+src/elm-backend.js
 
 .DS_Store

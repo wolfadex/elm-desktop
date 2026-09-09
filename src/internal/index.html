@@ -8,21 +8,28 @@
   <body>
     <h1>💖 Hello World!</h1>
     <p>Welcome to your Electron application.</p>
-    <script src="../frontend.js""></script>
-    <script>
-      var windowId;
+    <script src="../elm-frontend.js""></script>
+    <script type="module">
+      import frontend from "../frontend.js"
+
+      let windowId;
+
       electronAPI.onInitialize((id) => {
         windowId = id;
       });
-      var app = Elm.Frontend.init()
+
+      const flags = frontend.flags();
+      const app = Elm.Frontend.init({ flags: flags });
+
+      frontend.ports(app);
 
       electronAPI.onFromBackend(function(msg) {
-        app.ports.toFrontend.send(msg)
-      })
+        app.ports.toFrontend.send(msg);
+      });
 
       app.ports.sendToBackend.subscribe(function(msg) {
-        electronAPI.sendToBackend([windowId,msg])
-      })
+        electronAPI.sendToBackend([windowId,msg]);
+      });
     </script>
   </body>
 </html>
