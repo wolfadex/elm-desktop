@@ -1,9 +1,9 @@
 {
-  "name": "jukai",
+  "name": "elm-desktop",
   "version": "0.1.0",
-  "description": "A place for apps and toys",
+  "description": "A framework for building desktop apps with Elm",
   "productName": "my-app",
-  "main": "src/index.js",
+  "main": "src/internal/index.js",
   "private": true,
   "scripts": {
     "start": "electron-forge start",
@@ -29,6 +29,7 @@
     "@electron-forge/plugin-auto-unpack-natives": "^7.11.2",
     "@electron-forge/plugin-fuses": "^7.11.2",
     "@electron/fuses": "^1.8.0",
-    "electron": "44.2.0"
+    "electron": "44.2.0",
+    "lamdera": "^0.19.1-1.4.0"
   }
 }

@@ -1,27 +1,27 @@
-module Jukai exposing
+module Desktop exposing
     ( Window
     , openWindow
     )
 
-{-| Top-level API a Jukai _user_ reaches for. Everything else lives
-under `Jukai.*` and is either re-exported here or used by
-`Jukai.Frontend` / `Jukai.Backend` internally.
+{-| Top-level API a Desktop _user_ reaches for. Everything else lives
+under `Desktop.*` and is either re-exported here or used by
+`Desktop.Frontend` / `Desktop.Backend` internally.
 -}
 
+import Desktop.Internal
 import Http
 import Json.Decode
 import Json.Encode
-import Jukai.Internal
 
 
 type alias Window =
-    Jukai.Internal.Window
+    Desktop.Internal.Window
 
 
 openWindow : (Result String Window -> msg) -> { width : Int, height : Int } -> Cmd msg
 openWindow toMsg options =
     Http.post
-        { url = "jukai:open-window"
+        { url = "elm-desktop:open-window"
         , body =
             Json.Encode.object
                 [ ( "width", Json.Encode.int options.width )
@@ -34,5 +34,5 @@ openWindow toMsg options =
                     Result.mapError Debug.toString res
                         |> toMsg
                 )
-                (Json.Decode.map Jukai.Internal.Window Json.Decode.int)
+                (Json.Decode.map Desktop.Internal.Window Json.Decode.int)
         }

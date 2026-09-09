@@ -16,7 +16,7 @@ for you; the framework calls them directly (as `Types.w3_encode_ToBackend`
 etc.) so nothing about them needs to appear here.
 -}
 
-import Jukai
+import Desktop
 
 
 {-| Frontend -> Backend.
@@ -50,9 +50,9 @@ type FrontendMsg
 
 type alias BackendModel =
     { pingsReceived : Int
-    , window : Maybe Jukai.Window
+    , window : Maybe Desktop.Window
     }
 
 
 type BackendMsg
-    = WindowOpened (Result String Jukai.Window)
+    = WindowOpened (Result String Desktop.Window)

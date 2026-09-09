@@ -1,16 +1,16 @@
-port module Jukai.Ports exposing
+port module Desktop.Ports exposing
     ( sendToBackend
     , sendToFrontend
     , toBackend
     , toFrontend
     )
 
-{-| Low-level ports. Jukai users never touch this module directly -
-`Jukai`, `Jukai.Frontend` and `Jukai.Backend` wrap it.
+{-| Low-level ports. Desktop users never touch this module directly -
+`Desktop`, `Desktop.Frontend` and `Desktop.Backend` wrap it.
 
 All message traffic between the renderer (frontend) and the node
 (backend) process travels as `Bytes`, produced by the lamdera compiler's
-generated wire codecs (see `Jukai.Wire`). Electron's IPC is just
+generated wire codecs (see `Desktop.Wire`). Electron's IPC is just
 carrying opaque binary blobs - it never needs to know what's inside them.
 
 JS side needs to implement, roughly:

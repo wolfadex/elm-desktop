@@ -1,16 +1,16 @@
 module Frontend exposing (main)
 
 import Browser
+import Desktop
+import Desktop.Frontend
 import Html exposing (button, div, text)
 import Html.Events exposing (onClick)
-import Jukai
-import Jukai.Frontend
 import Types exposing (FrontendModel, FrontendMsg(..), ToBackend(..), ToFrontend(..))
 
 
-main : Program () FrontendModel Jukai.Frontend.Msg
+main : Program () FrontendModel Desktop.Frontend.Msg
 main =
-    Jukai.Frontend.application
+    Desktop.Frontend.application
         { init = init
         , update = update
         , updateFromBackend = updateFromBackend
@@ -31,7 +31,7 @@ update msg model =
     case msg of
         UserClickedPing ->
             ( { model | status = "waiting for pong..." }
-            , Jukai.Frontend.sendToBackend Ping
+            , Desktop.Frontend.sendToBackend Ping
             )
 
 

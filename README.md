@@ -1,3 +1,3 @@
-# 樹海 (Jukai)
+# elm-desktop
 
-A place for apps and toys
+An framework for building desktop apps with Elm.

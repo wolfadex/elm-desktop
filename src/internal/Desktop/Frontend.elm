@@ -1,4 +1,4 @@
-module Jukai.Frontend exposing (Config, Msg, application, sendToBackend)
+module Desktop.Frontend exposing (Config, Msg, application, sendToBackend)
 
 {-| Build the frontend (Electron renderer process) `main` for your app.
 
@@ -9,7 +9,7 @@ module those types live in, it can call the lamdera-compiler-generated
 never pass an encoder or decoder anywhere.
 
     main =
-        Jukai.Frontend.application
+        Desktop.Frontend.application
             { init = Frontend.init
             , update = Frontend.update
             , updateFromBackend = Frontend.updateFromBackend
@@ -21,8 +21,8 @@ never pass an encoder or decoder anywhere.
 
 import Browser
 import Bytes exposing (Bytes)
+import Desktop.Ports
 import Html
-import Jukai.Ports
 import Lamdera.Wire3
 import Types exposing (FrontendModel, FrontendMsg, ToBackend, ToFrontend)
 
@@ -40,7 +40,7 @@ type alias Config flags =
 
 
 {-| Internal message type. `main`'s type becomes
-`Program flags FrontendModel Jukai.Frontend.Msg` rather than
+`Program flags FrontendModel Desktop.Frontend.Msg` rather than
 `Program flags FrontendModel FrontendMsg` - this is just plumbing to get
 bytes off the `toFrontend` port and into `updateFromBackend`; nothing
 outside this module ever constructs or pattern-matches on it.
@@ -61,7 +61,7 @@ application config =
             \model ->
                 Sub.batch
                     [ Sub.map UserMsg (config.subscriptions model)
-                    , Jukai.Ports.toFrontend (decodeIncoming >> toMsg)
+                    , Desktop.Ports.toFrontend (decodeIncoming >> toMsg)
                     ]
         }
 
@@ -109,10 +109,10 @@ toMsg maybeToFrontend =
 
     UserClickedPing ->
         ( { model | status = Waiting }
-        , Jukai.Frontend.sendToBackend Ping
+        , Desktop.Frontend.sendToBackend Ping
         )
 
 -}
 sendToBackend : ToBackend -> Cmd msg
 sendToBackend msg =
-    Jukai.Ports.sendToBackend (Lamdera.Wire3.bytesEncode (Types.w3_encode_ToBackend msg))
+    Desktop.Ports.sendToBackend (Lamdera.Wire3.bytesEncode (Types.w3_encode_ToBackend msg))

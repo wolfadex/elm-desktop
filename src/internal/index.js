@@ -1,8 +1,9 @@
 const { app, BrowserWindow, ipcMain } = require("electron");
 const path = require("node:path");
 require("./XMLHttpRequest.js");
-const { Elm } = require("./backend.js");
 const httpHijack = require("./http-hijack.js").default;
+
+const { Elm } = require("../backend.js");
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require("electron-squirrel-startup")) {
@@ -13,7 +14,7 @@ var elmApp;
 var windows = {};
 var nextWindowId = 0;
 
-httpHijack("jukai", globalThis, function (router) {
+httpHijack("elm-desktop", globalThis, function (router) {
   router.post("open-window", function (req, res) {
     const windowOpts = req.body;
     const thisWindowId = nextWindowId;

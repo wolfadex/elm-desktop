@@ -1,5 +1,4 @@
 [env]
-# Automatically set environment variables for this project
 NODE_ENV = "development"
 ELECTRON_DISABLE_SECURITY_WARNINGS = "true"
 
@@ -24,7 +23,11 @@ run = "lamdera make src/Frontend.elm --output=src/frontend.js"
 
 [tasks.build-backend]
 description = "Compile the Elm Backend (Main Process Worker)"
-run = "lamdera make src/Backend.elm --output=src/backend.js"
+run = """
+lamdera make src/Backend.elm --output=src/backend.js
+echo 'function $author$project$LamderaHelpers$decodeWirePayloadHeader() {}' >> src/backend.js
+echo 'function $author$project$LamderaHelpers$decodeWireAnalytics() {}' >> src/backend.js
+"""
 
 [tasks.build]
 description = "Build both Frontend and Backend Elm apps"

@@ -1,14 +1,14 @@
-module Jukai.Backend exposing (Config, Msg, sendToFrontend, worker)
+module Desktop.Backend exposing (Config, Msg, sendToFrontend, worker)
 
 {-| Build the backend (a plain node process, no DOM) `main` for your app.
 
 Assumes `Types` exposes `BackendModel`, `BackendMsg`, `ToBackend` and
-`ToFrontend` - see Types.elm. Same deal as Jukai.Frontend: this
+`ToFrontend` - see Types.elm. Same deal as Desktop.Frontend: this
 module calls the generated `Types.w3_decode_ToBackend` /
 `Types.w3_encode_ToFrontend` itself, so nothing gets passed in.
 
     main =
-        Jukai.Backend.worker
+        Desktop.Backend.worker
             { init = Backend.init
             , update = Backend.update
             , updateFromFrontend = Backend.updateFromFrontend
@@ -18,8 +18,8 @@ module calls the generated `Types.w3_decode_ToBackend` /
 -}
 
 import Bytes exposing (Bytes)
-import Jukai.Internal
-import Jukai.Ports
+import Desktop.Internal
+import Desktop.Ports
 import Lamdera.Wire3
 import Types exposing (BackendModel, BackendMsg, ToBackend, ToFrontend)
 
@@ -27,17 +27,17 @@ import Types exposing (BackendModel, BackendMsg, ToBackend, ToFrontend)
 type alias Config flags =
     { init : flags -> ( BackendModel, Cmd BackendMsg )
     , update : BackendMsg -> BackendModel -> ( BackendModel, Cmd BackendMsg )
-    , updateFromFrontend : Jukai.Internal.Window -> ToBackend -> BackendModel -> ( BackendModel, Cmd BackendMsg )
+    , updateFromFrontend : Desktop.Internal.Window -> ToBackend -> BackendModel -> ( BackendModel, Cmd BackendMsg )
     , subscriptions : BackendModel -> Sub BackendMsg
     }
 
 
 {-| Internal message type - see the equivalent note on
-`Jukai.Frontend.Msg`.
+`Desktop.Frontend.Msg`.
 -}
 type Msg
     = UserMsg BackendMsg
-    | FromFrontend Jukai.Internal.Window ToBackend
+    | FromFrontend Desktop.Internal.Window ToBackend
     | FromFrontendDecodeError
 
 
@@ -50,7 +50,7 @@ worker config =
             \model ->
                 Sub.batch
                     [ Sub.map UserMsg (config.subscriptions model)
-                    , Jukai.Ports.toBackend decodeIncoming
+                    , Desktop.Ports.toBackend decodeIncoming
                     ]
         }
 
@@ -75,17 +75,17 @@ decodeIncoming ( windowId, bytes ) =
             FromFrontendDecodeError
 
         Just toBackendMsg ->
-            FromFrontend (Jukai.Internal.Window windowId) toBackendMsg
+            FromFrontend (Desktop.Internal.Window windowId) toBackendMsg
 
 
 {-| Send a message to a frontend window from your `update` function.
 
     Ping ->
         ( { model | pingsReceived = model.pingsReceived + 1 }
-        , Jukai.Backend.sendToFrontend Pong
+        , Desktop.Backend.sendToFrontend Pong
         )
 
 -}
-sendToFrontend : Jukai.Internal.Window -> ToFrontend -> Cmd msg
-sendToFrontend (Jukai.Internal.Window window) msg =
-    Jukai.Ports.sendToFrontend ( window, Lamdera.Wire3.bytesEncode (Types.w3_encode_ToFrontend msg) )
+sendToFrontend : Desktop.Internal.Window -> ToFrontend -> Cmd msg
+sendToFrontend (Desktop.Internal.Window window) msg =
+    Desktop.Ports.sendToFrontend ( window, Lamdera.Wire3.bytesEncode (Types.w3_encode_ToFrontend msg) )

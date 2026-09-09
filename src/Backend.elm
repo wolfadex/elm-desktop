@@ -1,13 +1,13 @@
 module Backend exposing (main)
 
-import Jukai
-import Jukai.Backend
+import Desktop
+import Desktop.Backend
 import Types exposing (BackendModel, BackendMsg(..), ToBackend(..), ToFrontend(..))
 
 
-main : Program () BackendModel Jukai.Backend.Msg
+main : Program () BackendModel Desktop.Backend.Msg
 main =
-    Jukai.Backend.worker
+    Desktop.Backend.worker
         { init = init
         , update = update
         , updateFromFrontend = updateFromFrontend
@@ -20,7 +20,7 @@ init _ =
     ( { pingsReceived = 0
       , window = Nothing
       }
-    , Jukai.openWindow WindowOpened { width = 800, height = 600 }
+    , Desktop.openWindow WindowOpened { width = 800, height = 600 }
     )
 
 
@@ -34,10 +34,10 @@ update msg model =
             ( { model | window = Just window }, Cmd.none )
 
 
-updateFromFrontend : Jukai.Window -> ToBackend -> BackendModel -> ( BackendModel, Cmd BackendMsg )
+updateFromFrontend : Desktop.Window -> ToBackend -> BackendModel -> ( BackendModel, Cmd BackendMsg )
 updateFromFrontend window msg model =
     case msg of
         Ping ->
             ( { model | pingsReceived = model.pingsReceived + 1 }
-            , Jukai.Backend.sendToFrontend window Pong
+            , Desktop.Backend.sendToFrontend window Pong
             )
