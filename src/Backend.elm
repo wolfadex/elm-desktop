@@ -20,7 +20,18 @@ init _ =
     ( { pingsReceived = 0
       , window = Nothing
       }
-    , Desktop.openWindow WindowOpened { width = 800, height = 600 }
+    , Desktop.openWindow WindowOpened
+        { width = 800
+        , height = 600
+        , frame = True
+        , fullscreen = Desktop.AllowFullscreen
+        , maxWidth = Nothing
+        , maxHeight = Nothing
+        , minWidth = Nothing
+        , minHeight = Nothing
+        , opacity = 1.0
+        , resizable = True
+        }
     )
 
 

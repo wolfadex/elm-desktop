@@ -30,6 +30,7 @@ echo 'function $author$project$LamderaHelpers$decodeWireAnalytics() {}' >> src/b
 """
 
 [tasks.build]
+sources = ["src/**/*.elm", "src/**/*.js"]
 description = "Build both Frontend and Backend Elm apps"
 depends = ["build-frontend", "build-backend"]
 

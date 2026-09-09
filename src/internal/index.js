@@ -16,29 +16,43 @@ var nextWindowId = 0;
 
 httpHijack("elm-desktop", globalThis, function (router) {
   router.post("open-window", function (req, res) {
-    const windowOpts = req.body;
-    const thisWindowId = nextWindowId;
-    nextWindowId += 1;
-
-    const window = new BrowserWindow({
-      ...windowOpts,
-      webPreferences: {
-        preload: path.join(__dirname, "preload.js"),
-        contextIsolation: true,
-        nodeIntegration: false,
-      },
-    });
-    window.webContents.on("did-finish-load", () => {
-      window.webContents.send("initialize-window", thisWindowId);
-    });
-
-    window.loadFile(path.join(__dirname, "index.html"));
-    window.webContents.openDevTools();
-    windows[thisWindowId] = window;
-
+    const thisWindowId = openWindow(JSON.parse(req.body), false);
+    res.json(thisWindowId);
+  });
+  router.post("open-debug-window", function (req, res) {
+    const thisWindowId = openWindow(JSON.parse(req.body), true);
     res.json(thisWindowId);
   });
 });
+
+function openWindow(options, showDevtools) {
+  const thisWindowId = nextWindowId;
+
+  nextWindowId += 1;
+
+  const window = new BrowserWindow({
+    ...options,
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+
+  window.webContents.on("did-finish-load", () => {
+    window.webContents.send("initialize-window", thisWindowId);
+  });
+
+  window.loadFile(path.join(__dirname, "index.html"));
+
+  if (showDevtools) {
+    window.webContents.openDevTools();
+  }
+
+  windows[thisWindowId] = window;
+
+  return thisWindowId;
+}
 
 function initializeElm() {
   elmApp = Elm.Backend.init();
