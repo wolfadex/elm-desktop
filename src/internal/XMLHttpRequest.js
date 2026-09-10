@@ -75,6 +75,23 @@ class XMLHttpRequest {
     }
   }
 
+  dispatchEvent(event) {
+    switch (event.type) {
+      case "load":
+        if (this._eventLoad) {
+          this._eventLoad();
+        }
+      case "error":
+        if (this._eventError) {
+          this._eventError();
+        }
+      case "timeout":
+        if (this._eventTimeout) {
+          this._eventTimeout();
+        }
+    }
+  }
+
   abort() {
     this._aborted = true;
   }
