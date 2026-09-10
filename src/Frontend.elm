@@ -3,9 +3,9 @@ module Frontend exposing (main)
 import Browser
 import Desktop
 import Desktop.Frontend
-import Html exposing (button, div, text)
-import Html.Events exposing (onClick)
-import Types exposing (FrontendModel, FrontendMsg(..), ToBackend(..), ToFrontend(..))
+import Html
+import Html.Events
+import Types exposing (..)
 
 
 type alias Flags =
@@ -25,7 +25,9 @@ main =
 
 init : Flags -> ( FrontendModel, Cmd FrontendMsg )
 init {} =
-    ( { status = "idle" }
+    ( { status = "idle"
+      , hyperswarm = Initializing
+      }
     , Cmd.none
     )
 
@@ -41,18 +43,30 @@ update msg model =
 
 updateFromBackend : ToFrontend -> FrontendModel -> ( FrontendModel, Cmd FrontendMsg )
 updateFromBackend msg model =
-    case msg of
+    case Debug.log "ToFrontend" msg of
         Pong ->
             ( { model | status = "got pong!" }, Cmd.none )
+
+        AppReady ->
+            ( { model | hyperswarm = Ready }, Cmd.none )
 
 
 view : FrontendModel -> Browser.Document FrontendMsg
 view model =
     { title = "Elm + Electron + Lamdera wire demo"
     , body =
-        [ div []
-            [ button [ onClick UserClickedPing ] [ text "Ping" ]
-            , div [] [ text ("status: " ++ model.status) ]
+        [ Html.div []
+            [ Html.button [ Html.Events.onClick UserClickedPing ] [ Html.text "Ping" ]
+            , Html.div [] [ Html.text ("status: " ++ model.status) ]
             ]
+        , case model.hyperswarm of
+            Initializing ->
+                Html.text "Connecting to the swarm"
+
+            Error err ->
+                Html.text ("Failure with connecting to the swarm: " ++ err)
+
+            Ready ->
+                Html.text "Connected"
         ]
     }

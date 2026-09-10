@@ -1,42 +1,20 @@
-module Types exposing
-    ( BackendModel
-    , BackendMsg(..)
-    , FrontendModel
-    , FrontendMsg(..)
-    , ToBackend(..)
-    , ToFrontend(..)
-    )
-
-{-| Framework.Frontend / Framework.Backend assume this module, under this
-exact name, exposing exactly these six things. `ToBackend` and
-`ToFrontend` are the only types that need to cross the wire - the
-lamdera compiler generates `w3_encode_ToBackend`, `w3_decode_ToBackend`,
-`w3_encode_ToFrontend` and `w3_decode_ToFrontend` right into this module
-for you; the framework calls them directly (as `Types.w3_encode_ToBackend`
-etc.) so nothing about them needs to appear here.
--}
+module Types exposing (..)
 
 import Desktop
 
 
-{-| Frontend -> Backend.
--}
 type ToBackend
     = Ping
 
 
-{-| Backend -> Frontend.
--}
 type ToFrontend
     = Pong
-
-
-
--- FRONTEND (renderer process)
+    | AppReady
 
 
 type alias FrontendModel =
     { status : String
+    , hyperswarm : Swarm
     }
 
 
@@ -44,15 +22,20 @@ type FrontendMsg
     = UserClickedPing
 
 
-
--- BACKEND (node process)
-
-
 type alias BackendModel =
     { pingsReceived : Int
     , window : Maybe Desktop.Window
+    , hyperswarm : Swarm
     }
+
+
+type Swarm
+    = Initializing
+    | Ready
+    | Error String
 
 
 type BackendMsg
     = WindowOpened (Result String Desktop.Window)
+    | SwarmReady ()
+    | DataReceived String
