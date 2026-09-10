@@ -24,10 +24,10 @@
       frontend.ports(app);
 
       electronAPI.onFromBackend(function(msg) {
-        app.ports.toFrontend.send(msg);
+        app.ports.toFrontend?.send(msg);
       });
 
-      app.ports.sendToBackend.subscribe(function(msg) {
+      app.ports.sendToBackend?.subscribe(function(msg) {
         electronAPI.sendToBackend([windowId,msg]);
       });
     </script>

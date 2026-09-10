@@ -21,6 +21,7 @@ never pass an encoder or decoder anywhere.
 
 import Browser
 import Bytes exposing (Bytes)
+import Desktop.Internal
 import Desktop.Ports
 import Html
 import Lamdera.Wire3
@@ -28,7 +29,7 @@ import Types exposing (FrontendModel, FrontendMsg, ToBackend, ToFrontend)
 
 
 type alias Config flags =
-    { init : flags -> ( FrontendModel, Cmd FrontendMsg )
+    { init : flags -> Desktop.Internal.FrontendKey -> ( FrontendModel, Cmd FrontendMsg )
     , update : FrontendMsg -> FrontendModel -> ( FrontendModel, Cmd FrontendMsg )
 
     -- Called whenever a `ToFrontend` value arrives from the backend,
@@ -54,7 +55,7 @@ type Msg
 application : Config flags -> Program flags FrontendModel Msg
 application config =
     Browser.document
-        { init = \flags -> config.init flags |> Tuple.mapSecond (Cmd.map UserMsg)
+        { init = \flags -> config.init flags Desktop.Internal.FrontendKey |> Tuple.mapSecond (Cmd.map UserMsg)
         , update = update config
         , view = view config
         , subscriptions =
@@ -113,6 +114,6 @@ toMsg maybeToFrontend =
         )
 
 -}
-sendToBackend : ToBackend -> Cmd msg
-sendToBackend msg =
+sendToBackend : Desktop.Internal.FrontendKey -> ToBackend -> Cmd msg
+sendToBackend _ msg =
     Desktop.Ports.sendToBackend (Lamdera.Wire3.bytesEncode (Types.w3_encode_ToBackend msg))

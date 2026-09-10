@@ -70,15 +70,10 @@ class HttpHijack {
   }
 
   run(xhr, method, url, body) {
-    return this.route(method, url, body).then(([code, response, isJson]) => {
+    return this.route(method, url, body).then(([code, response]) => {
       xhr.status = code;
       xhr.statusText = `code:${code}`;
-      if (isJson) {
-        xhr.response = response;
-        xhr.responseText = "";
-      } else {
-        xhr.response = xhr.responseText = response || "";
-      }
+      xhr.response = xhr.responseText = response || "";
       xhr.dispatchEvent(new Event("load"));
     });
   }
@@ -135,8 +130,7 @@ class Response {
   }
 
   json(res) {
-    // this.resolve([200, JSON.stringify(res)]);
-    this.resolve([200, res, true]);
+    this.resolve([200, res.toString()]);
   }
 
   error(e = "Internal error.") {

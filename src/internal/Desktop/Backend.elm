@@ -25,7 +25,7 @@ import Types exposing (BackendModel, BackendMsg, ToBackend, ToFrontend)
 
 
 type alias Config flags =
-    { init : flags -> ( BackendModel, Cmd BackendMsg )
+    { init : flags -> Desktop.Internal.BackendKey -> ( BackendModel, Cmd BackendMsg )
     , update : BackendMsg -> BackendModel -> ( BackendModel, Cmd BackendMsg )
     , updateFromFrontend : Desktop.Internal.Window -> ToBackend -> BackendModel -> ( BackendModel, Cmd BackendMsg )
     , subscriptions : BackendModel -> Sub BackendMsg
@@ -44,7 +44,7 @@ type Msg
 worker : Config flags -> Program flags BackendModel Msg
 worker config =
     Platform.worker
-        { init = \flags -> config.init flags |> Tuple.mapSecond (Cmd.map UserMsg)
+        { init = \flags -> config.init flags Desktop.Internal.BackendKey |> Tuple.mapSecond (Cmd.map UserMsg)
         , update = update config
         , subscriptions =
             \model ->
@@ -86,6 +86,6 @@ decodeIncoming ( windowId, bytes ) =
         )
 
 -}
-sendToFrontend : Desktop.Internal.Window -> ToFrontend -> Cmd msg
-sendToFrontend (Desktop.Internal.Window window) msg =
+sendToFrontend : Desktop.Internal.BackendKey -> Desktop.Internal.Window -> ToFrontend -> Cmd msg
+sendToFrontend _ (Desktop.Internal.Window window) msg =
     Desktop.Ports.sendToFrontend ( window, Lamdera.Wire3.bytesEncode (Types.w3_encode_ToFrontend msg) )

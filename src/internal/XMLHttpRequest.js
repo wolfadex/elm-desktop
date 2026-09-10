@@ -81,14 +81,17 @@ class XMLHttpRequest {
         if (this._eventLoad) {
           this._eventLoad();
         }
+        break;
       case "error":
         if (this._eventError) {
           this._eventError();
         }
+        break;
       case "timeout":
         if (this._eventTimeout) {
           this._eventTimeout();
         }
+        break;
     }
   }
 

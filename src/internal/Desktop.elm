@@ -1,16 +1,29 @@
 module Desktop exposing
-    ( Window
+    ( BackendKey
+    , Window
     , WindowOptions, FullScreen(..)
     , openWindow
     , openDebugWindow
+    , saveUserData, loadUserData
+    , FrontendKey
     )
 
 {-|
 
+
+# Backend
+
+@docs BackendKey
 @docs Window
 @docs WindowOptions, FullScreen
 @docs openWindow
 @docs openDebugWindow
+@docs saveUserData, loadUserData
+
+
+# Frontend
+
+@docs FrontendKey
 
 -}
 
@@ -22,6 +35,14 @@ import Json.Encode
 
 type alias Window =
     Desktop.Internal.Window
+
+
+type alias BackendKey =
+    Desktop.Internal.BackendKey
+
+
+type alias FrontendKey =
+    Desktop.Internal.FrontendKey
 
 
 type alias WindowOptions =
@@ -85,8 +106,8 @@ maybeField label encoder value =
         options
 
 -}
-openWindow : (Result String Window -> msg) -> WindowOptions -> Cmd msg
-openWindow toMsg options =
+openWindow : Desktop.Internal.BackendKey -> (Result String Window -> msg) -> WindowOptions -> Cmd msg
+openWindow _ toMsg options =
     Http.post
         { url = "elm-desktop:open-window"
         , body =
@@ -108,8 +129,8 @@ openWindow toMsg options =
         options
 
 -}
-openDebugWindow : (String -> Never) -> (Result String Window -> msg) -> WindowOptions -> Cmd msg
-openDebugWindow _ toMsg options =
+openDebugWindow : (String -> Never) -> Desktop.Internal.BackendKey -> (Result String Window -> msg) -> WindowOptions -> Cmd msg
+openDebugWindow _ _ toMsg options =
     Http.post
         { url = "elm-desktop:open-debug-window"
         , body =
@@ -122,4 +143,40 @@ openDebugWindow _ toMsg options =
                         |> toMsg
                 )
                 (Json.Decode.map Desktop.Internal.Window Json.Decode.int)
+        }
+
+
+saveUserData : Desktop.Internal.BackendKey -> (Result String () -> msg) -> { filename : String, data : String } -> Cmd msg
+saveUserData _ toMsg { filename, data } =
+    Http.post
+        { url = "elm-desktop:save-user-data"
+        , body =
+            Json.Encode.object
+                [ ( "filename", Json.Encode.string filename )
+                , ( "data", Json.Encode.string data )
+                ]
+                |> Http.jsonBody
+        , expect =
+            Http.expectJson
+                (\res ->
+                    Result.mapError Debug.toString res
+                        |> toMsg
+                )
+                (Json.Decode.succeed ())
+        }
+
+
+loadUserData : Desktop.Internal.BackendKey -> (Result String String -> msg) -> String -> Cmd msg
+loadUserData _ toMsg filename =
+    Http.post
+        { url = "elm-desktop:load-user-data"
+        , body =
+            Http.jsonBody
+                (Json.Encode.string filename)
+        , expect =
+            Http.expectString
+                (\res ->
+                    Result.mapError Debug.toString res
+                        |> toMsg
+                )
         }

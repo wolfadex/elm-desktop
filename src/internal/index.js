@@ -1,5 +1,8 @@
-const { app, BrowserWindow, ipcMain } = require("electron");
 const path = require("node:path");
+const fs = require("node:fs");
+
+const { app, BrowserWindow, ipcMain } = require("electron");
+
 require("./XMLHttpRequest.js");
 const httpHijack = require("./http-hijack.js").default;
 
@@ -17,16 +20,46 @@ var nextWindowId = 0;
 
 httpHijack("elm-desktop", globalThis, function (router) {
   router.post("open-window", function (req, res) {
-    const thisWindowId = openWindow(JSON.parse(req.body), false);
-    res.json(thisWindowId);
+    openWindow(JSON.parse(req.body), false, function (thisWindowId) {
+      res.json(thisWindowId);
+    });
   });
+
   router.post("open-debug-window", function (req, res) {
-    const thisWindowId = openWindow(JSON.parse(req.body), true);
-    res.json(thisWindowId);
+    openWindow(JSON.parse(req.body), true, function (thisWindowId) {
+      res.json(thisWindowId);
+    });
+  });
+
+  router.post("save-user-data", function (req, res) {
+    const { filename, data } = req.json;
+    const filePath = path.join(app.getPath("userData"), filename);
+
+    fs.writeFile(filePath, data, function (error) {
+      if (error) {
+        console.error(error);
+        res.error(error.toString());
+      } else {
+        res.ok();
+      }
+    });
+  });
+
+  router.post("load-user-data", function (req, res) {
+    const filename = req.json;
+    const filePath = path.join(app.getPath("userData"), filename);
+
+    fs.readFile(filePath, "utf-8", function (error, data) {
+      if (error) {
+        res.error(error.toString());
+      } else {
+        res.text(data);
+      }
+    });
   });
 });
 
-function openWindow(options, showDevtools) {
+function openWindow(options, showDevtools, onLoaded) {
   const thisWindowId = nextWindowId;
 
   nextWindowId += 1;
@@ -42,6 +75,7 @@ function openWindow(options, showDevtools) {
 
   window.webContents.on("did-finish-load", () => {
     window.webContents.send("initialize-window", thisWindowId);
+    onLoaded(thisWindowId);
   });
 
   window.loadFile(path.join(__dirname, "index.html"));
@@ -51,8 +85,6 @@ function openWindow(options, showDevtools) {
   }
 
   windows[thisWindowId] = window;
-
-  return thisWindowId;
 }
 
 function initializeElm() {
@@ -62,7 +94,7 @@ function initializeElm() {
 
   backend.ports(elmApp);
 
-  elmApp.ports.sendToFrontend.subscribe(function ([windowId, msg]) {
+  elmApp.ports.sendToFrontend?.subscribe(function ([windowId, msg]) {
     const window = windows[windowId];
 
     if (window) {
@@ -72,7 +104,7 @@ function initializeElm() {
 }
 
 ipcMain.on("to-backend", (event, [windowId, arrayBuffer]) => {
-  elmApp.ports.toBackend.send([windowId, arrayBuffer]);
+  elmApp.ports.toBackend?.send([windowId, arrayBuffer]);
 });
 
 // This method will be called when Electron has finished
