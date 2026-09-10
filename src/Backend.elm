@@ -2,6 +2,8 @@ port module Backend exposing (main)
 
 import Desktop
 import Desktop.Backend
+import Json.Decode
+import Json.Encode
 import Types exposing (..)
 
 
@@ -19,14 +21,17 @@ main =
         }
 
 
-init : Flags -> ( BackendModel, Cmd BackendMsg )
-init {} =
-    ( { window = Nothing
-      , hyperswarm = Initializing
+init : Flags -> Desktop.BackendKey -> ( BackendModel, Cmd BackendMsg )
+init {} key =
+    ( { key = key
+      , window = Nothing
+      , hyperswarm = Loading
+      , savedTodos = Nothing
       }
     , Cmd.batch
         [ Desktop.openDebugWindow Debug.todo
-            -- Desktop.openWindow WindowOpened
+            -- Desktop.openWindow
+            key
             WindowOpened
             { width = 800
             , height = 600
@@ -40,6 +45,9 @@ init {} =
             , resizable = True
             }
         , initializeHyperswarm appName
+        , Desktop.loadUserData key
+            TodosLoaded
+            "todos.json"
         ]
     )
 
@@ -80,41 +88,74 @@ update msg model =
             ( model, Cmd.none )
 
         WindowOpened (Ok window) ->
-            let
-                _ =
-                    Debug.log "WindowOpened Ok" ()
-            in
             ( { model | window = Just window }
-            , case Debug.log "hyperswarm?" model.hyperswarm of
-                Ready ->
-                    Desktop.Backend.sendToFrontend window AppReady
+            , Cmd.batch
+                [ case model.hyperswarm of
+                    Loaded () ->
+                        Desktop.Backend.sendToFrontend model.key window AppReady
 
-                _ ->
-                    Cmd.none
+                    _ ->
+                        Cmd.none
+                , case model.savedTodos of
+                    Nothing ->
+                        Cmd.none
+
+                    Just savedTodos ->
+                        Desktop.Backend.sendToFrontend model.key window (TodosRecieved savedTodos)
+                ]
             )
 
         SwarmReady () ->
-            let
-                _ =
-                    Debug.log "SwarmReady" ()
-            in
-            ( { model | hyperswarm = Ready }
-            , case Debug.log "has window?" model.window of
+            ( { model | hyperswarm = Loaded () }
+            , case model.window of
                 Nothing ->
                     Cmd.none
 
                 Just window ->
-                    Desktop.Backend.sendToFrontend window AppReady
+                    Desktop.Backend.sendToFrontend model.key window AppReady
             )
 
         DataReceived data ->
-            Debug.todo ""
+            ( model
+            , case model.window of
+                Nothing ->
+                    Cmd.none
+
+                Just window ->
+                    Desktop.Backend.sendToFrontend model.key window (TodosRecieved data)
+            )
+
+        TodosSaved (Err err) ->
+            Debug.todo (Debug.toString err)
+
+        TodosSaved (Ok ()) ->
+            ( model, Cmd.none )
+
+        TodosLoaded (Err err) ->
+            Debug.todo (Debug.toString err)
+
+        TodosLoaded (Ok savedTodos) ->
+            case model.window of
+                Nothing ->
+                    ( { model | savedTodos = Just savedTodos }, Cmd.none )
+
+                Just window ->
+                    ( model
+                    , Desktop.Backend.sendToFrontend model.key window (TodosRecieved savedTodos)
+                    )
 
 
 updateFromFrontend : Desktop.Window -> ToBackend -> BackendModel -> ( BackendModel, Cmd BackendMsg )
 updateFromFrontend window msg model =
     case msg of
-        ToBackendNoOp ->
+        SaveTodos todos ->
             ( model
-            , Cmd.none
+            , Cmd.batch
+                [ Desktop.saveUserData model.key
+                    TodosSaved
+                    { filename = "todos.json"
+                    , data = todos
+                    }
+                , sendData todos
+                ]
             )
