@@ -21,8 +21,7 @@ main =
 
 init : Flags -> ( BackendModel, Cmd BackendMsg )
 init {} =
-    ( { pingsReceived = 0
-      , window = Nothing
+    ( { window = Nothing
       , hyperswarm = Initializing
       }
     , Cmd.batch
@@ -115,7 +114,7 @@ update msg model =
 updateFromFrontend : Desktop.Window -> ToBackend -> BackendModel -> ( BackendModel, Cmd BackendMsg )
 updateFromFrontend window msg model =
     case msg of
-        Ping ->
-            ( { model | pingsReceived = model.pingsReceived + 1 }
-            , Desktop.Backend.sendToFrontend window Pong
+        ToBackendNoOp ->
+            ( model
+            , Cmd.none
             )

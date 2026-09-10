@@ -4,27 +4,24 @@ import Desktop
 
 
 type ToBackend
-    = Ping
+    = ToBackendNoOp
 
 
 type ToFrontend
-    = Pong
-    | AppReady
+    = AppReady
 
 
 type alias FrontendModel =
-    { status : String
-    , hyperswarm : Swarm
+    { hyperswarm : Swarm
     }
 
 
 type FrontendMsg
-    = UserClickedPing
+    = FrontendNoOp
 
 
 type alias BackendModel =
-    { pingsReceived : Int
-    , window : Maybe Desktop.Window
+    { window : Maybe Desktop.Window
     , hyperswarm : Swarm
     }
 
