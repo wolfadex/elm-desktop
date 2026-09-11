@@ -51,6 +51,7 @@ type TodoStatus
 type FrontendMsg
     = UserChangedNewTodo String
     | SaveNewTodo String
+    | RemoveTodo Int
 
 
 type alias BackendModel =

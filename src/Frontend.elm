@@ -7,7 +7,7 @@ import Crdt.Edit
 import Crdt.Id
 import Desktop
 import Desktop.Frontend
-import Html
+import Html exposing (Html)
 import Html.Attributes
 import Html.Events
 import Json.Decode
@@ -61,11 +61,15 @@ update msg model =
                     )
 
         SaveNewTodo newTodo ->
-            if String.isEmpty newTodo then
+            let
+                trimmedNewTodo =
+                    String.trim newTodo
+            in
+            if String.isEmpty trimmedNewTodo then
                 ( model, Cmd.none )
 
             else
-                case Crdt.Edit.append Types.todoDoc.todos newTodo model.todoDoc of
+                case Crdt.Edit.append Types.todoDoc.todos trimmedNewTodo model.todoDoc of
                     Err err ->
                         Debug.todo (Debug.toString err)
 
@@ -78,6 +82,16 @@ update msg model =
                                 ( { model | todoDoc = todoDoc }
                                 , Desktop.Frontend.sendToBackend model.key (SaveTodos (Crdt.Doc.encode todoDoc |> Json.Encode.encode 0))
                                 )
+
+        RemoveTodo idx ->
+            case Crdt.Edit.remove Types.todoDoc.todos idx model.todoDoc of
+                Err err ->
+                    Debug.todo (Debug.toString err)
+
+                Ok todoDoc ->
+                    ( { model | todoDoc = todoDoc }
+                    , Desktop.Frontend.sendToBackend model.key (SaveTodos (Crdt.Doc.encode todoDoc |> Json.Encode.encode 0))
+                    )
 
 
 updateFromBackend : ToFrontend -> FrontendModel -> ( FrontendModel, Cmd FrontendMsg )
@@ -112,10 +126,51 @@ view model =
                     |> Crdt.Doc.read
                     |> Result.map .newTodo
                     |> Result.withDefault ""
+
+            todos =
+                model.todoDoc
+                    |> Crdt.Doc.read
+                    |> Result.map .todos
+                    |> Result.withDefault []
           in
-          Html.div
-            []
-            [ case model.hyperswarm of
+          -- Html.div
+          --   []
+          --   [ case model.hyperswarm of
+          --       Loading ->
+          --           Html.text "Connecting to the swarm"
+          --       Error err ->
+          --           Html.text ("Failure with connecting to the swarm: " ++ err)
+          --       Loaded () ->
+          --           Html.text "Connected"
+          --   , Html.form
+          --       [ Html.Events.onSubmit (SaveNewTodo newTodoValue) ]
+          --       [ Html.label []
+          --           [ Html.span [] [ Html.text "New todo:" ]
+          --           , Html.input
+          --               [ Html.Attributes.value newTodoValue
+          --               , Html.Events.onInput UserChangedNewTodo
+          --               ]
+          --               []
+          --           ]
+          --       , Html.button
+          --           [ Html.Attributes.type_ "submit"
+          --           ]
+          --           [ Html.text "Save" ]
+          --       ]
+          --   , model.todoDoc
+          --       |> Crdt.Doc.read
+          --       |> Result.map .todos
+          --       |> Result.withDefault []
+          --       |> List.map
+          --           (\todo ->
+          --               Html.li []
+          --                   [ Html.text todo ]
+          --           )
+          --       |> Html.ul []
+          --   ]
+          Html.div [ Html.Attributes.class "todo-app" ]
+            [ -- statusBar model.syncStatus
+              case model.hyperswarm of
                 Loading ->
                     Html.text "Connecting to the swarm"
 
@@ -124,31 +179,71 @@ view model =
 
                 Loaded () ->
                     Html.text "Connected"
-            , Html.form
-                [ Html.Events.onSubmit (SaveNewTodo newTodoValue) ]
-                [ Html.label []
-                    [ Html.span [] [ Html.text "New todo:" ]
-                    , Html.input
-                        [ Html.Attributes.value newTodoValue
-                        , Html.Events.onInput UserChangedNewTodo
-                        ]
-                        []
-                    ]
-                , Html.button
-                    [ Html.Attributes.type_ "submit"
-                    ]
-                    [ Html.text "Save" ]
+            , Html.div []
+                [ newTodoForm newTodoValue
+                , todoList todos
                 ]
-            , model.todoDoc
-                |> Crdt.Doc.read
-                |> Result.map .todos
-                |> Result.withDefault []
-                |> List.map
-                    (\todo ->
-                        Html.li []
-                            [ Html.text todo ]
-                    )
-                |> Html.ul []
             ]
         ]
     }
+
+
+
+-- statusBar : SyncStatus -> Html Msg
+-- statusBar syncStatus =
+--     case syncStatus of
+--         Idle ->
+--             Html.text ""
+--         Saving ->
+--             Html.div [ Html.Attributes.class "status status-saving" ] [ Html.text "Saving…" ]
+--         ReceivingRemoteChanges ->
+--             Html.div [ Html.Attributes.class "status status-syncing" ]
+--                 [ Html.text "Updating from another device…" ]
+--         SyncFailed err ->
+--             Html.div [ Html.Attributes.class "status status-error" ]
+--                 [ Html.text ("Couldn't save: " ++ err) ]
+
+
+newTodoForm : String -> Html FrontendMsg
+newTodoForm newTodoValue =
+    Html.form
+        [ Html.Events.onSubmit (SaveNewTodo newTodoValue)
+        , Html.Attributes.class "new-todo-form"
+        ]
+        [ Html.input
+            [ Html.Attributes.value newTodoValue
+            , Html.Events.onInput UserChangedNewTodo
+            , Html.Attributes.placeholder "What needs doing?"
+            ]
+            []
+        , Html.button
+            [ Html.Attributes.type_ "submit"
+            , Html.Attributes.disabled (String.trim newTodoValue == "")
+            ]
+            [ Html.text "Add" ]
+        ]
+
+
+todoList : List String -> Html FrontendMsg
+todoList todos =
+    if List.isEmpty todos then
+        Html.div [ Html.Attributes.class "empty-state" ]
+            [ Html.text "Nothing to do yet." ]
+
+    else
+        Html.ul [ Html.Attributes.class "todo-list" ]
+            (List.indexedMap todoItem todos)
+
+
+todoItem : Int -> String -> Html FrontendMsg
+todoItem idx todo =
+    Html.li [ Html.Attributes.class "todo-item" ]
+        [ Html.span [ Html.Attributes.class "todo-text" ]
+            [ Html.text todo ]
+        , Html.button
+            [ Html.Attributes.type_ "button"
+            , Html.Events.onClick (RemoveTodo idx)
+            , Html.Attributes.class "remove-button"
+            ]
+            [ Html.text "×" ]
+        ]
