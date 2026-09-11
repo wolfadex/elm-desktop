@@ -25,6 +25,7 @@ init : Flags -> Desktop.BackendKey -> ( BackendModel, Cmd BackendMsg )
 init {} key =
     ( { key = key
       , window = Nothing
+      , settings = Loading
       , hyperswarm = Loading
       , savedTodos = Nothing
       }
@@ -44,10 +45,7 @@ init {} key =
             , opacity = 1.0
             , resizable = True
             }
-        , initializeHyperswarm appName
-        , Desktop.loadUserData key
-            TodosLoaded
-            "todos.json"
+        , Desktop.loadUserData key SettingsLoaded "settings.json"
         ]
     )
 
@@ -102,8 +100,63 @@ update msg model =
 
                     Just savedTodos ->
                         Desktop.Backend.sendToFrontend model.key window (TodosRecieved savedTodos)
+                , case model.settings of
+                    Loaded settings ->
+                        if settings.deviceName == "" then
+                            Desktop.Backend.sendToFrontend model.key window DeviceNameUnset
+
+                        else
+                            Desktop.Backend.sendToFrontend model.key window (DeviceNameSet settings.deviceName)
+
+                    _ ->
+                        Cmd.none
                 ]
             )
+
+        SettingsLoaded (Err err) ->
+            let
+                _ =
+                    Debug.log "SettingsLoaded" (Debug.toString err)
+            in
+            ( { model | settings = Loaded { version = 0, deviceName = "" } }
+            , case model.window of
+                Nothing ->
+                    Cmd.none
+
+                Just window ->
+                    Desktop.Backend.sendToFrontend model.key window DeviceNameUnset
+            )
+
+        SettingsLoaded (Ok settingsStr) ->
+            case Json.Decode.decodeString decodeSettings settingsStr of
+                Err err ->
+                    Debug.todo (Debug.toString err)
+
+                Ok settings ->
+                    ( { model | settings = Loaded settings }
+                    , case model.window of
+                        Nothing ->
+                            Desktop.loadUserData model.key TodosLoaded "todos.json"
+
+                        Just window ->
+                            Cmd.batch
+                                [ Desktop.Backend.sendToFrontend model.key window (DeviceNameSet settings.deviceName)
+                                , Desktop.loadUserData model.key TodosLoaded "todos.json"
+                                ]
+                    )
+
+        SettingsSaved _ (Err err) ->
+            Debug.todo (Debug.toString err)
+
+        SettingsSaved settings (Ok ()) ->
+            case model.window of
+                Nothing ->
+                    ( model, Cmd.none )
+
+                Just window ->
+                    ( model
+                    , Desktop.Backend.sendToFrontend model.key window (DeviceNameSet settings.deviceName)
+                    )
 
         SwarmReady () ->
             ( { model | hyperswarm = Loaded () }
@@ -132,22 +185,60 @@ update msg model =
             ( model, Cmd.none )
 
         TodosLoaded (Err err) ->
-            Debug.todo (Debug.toString err)
+            ( model, initializeHyperswarm appName )
 
         TodosLoaded (Ok savedTodos) ->
             case model.window of
                 Nothing ->
-                    ( { model | savedTodos = Just savedTodos }, Cmd.none )
+                    ( { model | savedTodos = Just savedTodos }, initializeHyperswarm appName )
 
                 Just window ->
                     ( model
-                    , Desktop.Backend.sendToFrontend model.key window (TodosRecieved savedTodos)
+                    , Cmd.batch
+                        [ Desktop.Backend.sendToFrontend model.key window (TodosRecieved savedTodos)
+                        , initializeHyperswarm appName
+                        ]
                     )
 
 
 updateFromFrontend : Desktop.Window -> ToBackend -> BackendModel -> ( BackendModel, Cmd BackendMsg )
 updateFromFrontend window msg model =
     case msg of
+        SetDeviceName deviceName ->
+            case model.settings of
+                Loading ->
+                    ( model, Cmd.none )
+
+                Loaded settings ->
+                    let
+                        updatedSettings =
+                            { settings | deviceName = deviceName }
+                    in
+                    ( model
+                    , Desktop.saveUserData model.key
+                        (SettingsSaved updatedSettings)
+                        { filename = "settings.json"
+                        , data =
+                            encodeSettings updatedSettings
+                                |> Json.Encode.encode 0
+                        }
+                    )
+
+                Error _ ->
+                    let
+                        updatedSettings =
+                            { version = 0, deviceName = deviceName }
+                    in
+                    ( model
+                    , Desktop.saveUserData model.key
+                        (SettingsSaved updatedSettings)
+                        { filename = "settings.json"
+                        , data =
+                            encodeSettings updatedSettings
+                                |> Json.Encode.encode 0
+                        }
+                    )
+
         SaveTodos todos ->
             ( model
             , Cmd.batch

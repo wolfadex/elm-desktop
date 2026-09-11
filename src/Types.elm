@@ -3,21 +3,37 @@ module Types exposing (..)
 import Crdt
 import Crdt.Doc
 import Desktop
+import Json.Decode
 import Json.Encode
 
 
 type ToBackend
     = SaveTodos String
+    | SetDeviceName String
 
 
 type ToFrontend
     = AppReady
     | TodosRecieved String
+    | DeviceNameUnset
+    | DeviceNameSet String
 
 
 type alias FrontendModel =
     { key : Desktop.FrontendKey
-    , hyperswarm : RemoteData String ()
+    , state : FrontendState
+    }
+
+
+type FrontendState
+    = WaitingForDeviceName
+    | NeedsDeviceName String
+    | SavingDeviceName String
+    | ReadyForTodos FrontendReady
+
+
+type alias FrontendReady =
+    { hyperswarm : RemoteData String ()
     , todoDoc : Crdt.Doc.Doc Todo
     }
 
@@ -49,14 +65,46 @@ type TodoStatus
 
 
 type FrontendMsg
-    = UserChangedNewTodo String
+    = DeviceNameChanged String
+    | DeviceNameSubmitted String
+    | UserChangedNewTodo String
     | SaveNewTodo String
     | RemoveTodo Int
+
+
+type alias Settings =
+    { version : Int
+    , deviceName : String
+    }
+
+
+encodeSettings : Settings -> Json.Encode.Value
+encodeSettings settings =
+    Json.Encode.object
+        [ ( "version", Json.Encode.int settings.version )
+        , ( "deviceName", Json.Encode.string settings.deviceName )
+        ]
+
+
+decodeSettings : Json.Decode.Decoder Settings
+decodeSettings =
+    Json.Decode.field "version" Json.Decode.int
+        |> Json.Decode.andThen
+            (\version ->
+                case version of
+                    0 ->
+                        Json.Decode.map (Settings version)
+                            (Json.Decode.field "deviceName" Json.Decode.string)
+
+                    _ ->
+                        Json.Decode.fail "Unknown version"
+            )
 
 
 type alias BackendModel =
     { key : Desktop.BackendKey
     , window : Maybe Desktop.Window
+    , settings : RemoteData Desktop.FileError Settings
     , hyperswarm : RemoteData String ()
     , savedTodos : Maybe String
     }
@@ -72,5 +120,7 @@ type BackendMsg
     = WindowOpened (Result String Desktop.Window)
     | SwarmReady ()
     | DataReceived String
-    | TodosSaved (Result String ())
-    | TodosLoaded (Result String String)
+    | SettingsLoaded (Result Desktop.FileError String)
+    | SettingsSaved Settings (Result Desktop.FileError ())
+    | TodosSaved (Result Desktop.FileError ())
+    | TodosLoaded (Result Desktop.FileError String)

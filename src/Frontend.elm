@@ -16,6 +16,7 @@ import Types
     exposing
         ( FrontendModel
         , FrontendMsg(..)
+        , FrontendState(..)
         , RemoteData(..)
         , ToBackend(..)
         , ToFrontend(..)
@@ -40,8 +41,7 @@ main =
 init : Flags -> Desktop.FrontendKey -> ( FrontendModel, Cmd FrontendMsg )
 init {} key =
     ( { key = key
-      , hyperswarm = Loading
-      , todoDoc = Crdt.init (Crdt.Id.replica "wolfgang") Types.todoDoc.schema
+      , state = WaitingForDeviceName
       }
     , Cmd.none
     )
@@ -49,142 +49,280 @@ init {} key =
 
 update : FrontendMsg -> FrontendModel -> ( FrontendModel, Cmd FrontendMsg )
 update msg model =
-    case msg of
-        UserChangedNewTodo newTodo ->
-            case Crdt.Edit.set Types.todoDoc.newTodo newTodo model.todoDoc of
-                Err err ->
-                    Debug.todo (Debug.toString err)
+    case model.state of
+        WaitingForDeviceName ->
+            ( model, Cmd.none )
 
-                Ok todoDoc ->
-                    ( { model | todoDoc = todoDoc }
+        NeedsDeviceName _ ->
+            case msg of
+                DeviceNameChanged deviceName ->
+                    ( { model
+                        | state = NeedsDeviceName deviceName
+                      }
                     , Cmd.none
                     )
 
-        SaveNewTodo newTodo ->
-            let
-                trimmedNewTodo =
-                    String.trim newTodo
-            in
-            if String.isEmpty trimmedNewTodo then
-                ( model, Cmd.none )
+                DeviceNameSubmitted deviceName ->
+                    let
+                        trimmedDeviceName =
+                            String.trim deviceName
+                    in
+                    if String.isEmpty trimmedDeviceName then
+                        ( model, Cmd.none )
 
-            else
-                case Crdt.Edit.append Types.todoDoc.todos trimmedNewTodo model.todoDoc of
-                    Err err ->
-                        Debug.todo (Debug.toString err)
+                    else
+                        ( { model | state = SavingDeviceName deviceName }
+                        , Desktop.Frontend.sendToBackend model.key (SetDeviceName trimmedDeviceName)
+                        )
 
-                    Ok todoDocWithUpdatedTodos ->
-                        case Crdt.Edit.set Types.todoDoc.newTodo "" todoDocWithUpdatedTodos of
+                _ ->
+                    ( model, Cmd.none )
+
+        SavingDeviceName _ ->
+            ( model, Cmd.none )
+
+        ReadyForTodos ready ->
+            case msg of
+                DeviceNameChanged _ ->
+                    ( model, Cmd.none )
+
+                DeviceNameSubmitted _ ->
+                    ( model, Cmd.none )
+
+                UserChangedNewTodo newTodo ->
+                    case Crdt.Edit.set Types.todoDoc.newTodo newTodo ready.todoDoc of
+                        Err err ->
+                            Debug.todo (Debug.toString err)
+
+                        Ok todoDoc ->
+                            ( { model | state = ReadyForTodos { ready | todoDoc = todoDoc } }
+                            , Cmd.none
+                            )
+
+                SaveNewTodo newTodo ->
+                    let
+                        trimmedNewTodo =
+                            String.trim newTodo
+                    in
+                    if String.isEmpty trimmedNewTodo then
+                        ( model, Cmd.none )
+
+                    else
+                        case Crdt.Edit.append Types.todoDoc.todos trimmedNewTodo ready.todoDoc of
                             Err err ->
                                 Debug.todo (Debug.toString err)
 
-                            Ok todoDoc ->
-                                ( { model | todoDoc = todoDoc }
-                                , Desktop.Frontend.sendToBackend model.key (SaveTodos (Crdt.Doc.encode todoDoc |> Json.Encode.encode 0))
-                                )
+                            Ok todoDocWithUpdatedTodos ->
+                                case Crdt.Edit.set Types.todoDoc.newTodo "" todoDocWithUpdatedTodos of
+                                    Err err ->
+                                        Debug.todo (Debug.toString err)
 
-        RemoveTodo idx ->
-            case Crdt.Edit.remove Types.todoDoc.todos idx model.todoDoc of
-                Err err ->
-                    Debug.todo (Debug.toString err)
+                                    Ok todoDoc ->
+                                        ( { model | state = ReadyForTodos { ready | todoDoc = todoDoc } }
+                                        , Desktop.Frontend.sendToBackend model.key (SaveTodos (Crdt.Doc.encode todoDoc |> Json.Encode.encode 0))
+                                        )
 
-                Ok todoDoc ->
-                    ( { model | todoDoc = todoDoc }
-                    , Desktop.Frontend.sendToBackend model.key (SaveTodos (Crdt.Doc.encode todoDoc |> Json.Encode.encode 0))
-                    )
+                RemoveTodo idx ->
+                    case Crdt.Edit.remove Types.todoDoc.todos idx ready.todoDoc of
+                        Err err ->
+                            Debug.todo (Debug.toString err)
+
+                        Ok todoDoc ->
+                            ( { model | state = ReadyForTodos { ready | todoDoc = todoDoc } }
+                            , Desktop.Frontend.sendToBackend model.key (SaveTodos (Crdt.Doc.encode todoDoc |> Json.Encode.encode 0))
+                            )
 
 
 updateFromBackend : ToFrontend -> FrontendModel -> ( FrontendModel, Cmd FrontendMsg )
 updateFromBackend msg model =
-    case msg of
-        AppReady ->
-            ( { model | hyperswarm = Loaded () }, Cmd.none )
+    case model.state of
+        WaitingForDeviceName ->
+            case msg of
+                DeviceNameUnset ->
+                    ( { model | state = NeedsDeviceName "" }, Cmd.none )
 
-        TodosRecieved todosStr ->
-            ( case Json.Decode.decodeString Json.Decode.value todosStr of
-                Err err ->
-                    Debug.todo (Debug.toString err)
+                DeviceNameSet deviceName ->
+                    ( { model
+                        | state =
+                            ReadyForTodos
+                                { hyperswarm = Loading
+                                , todoDoc = Crdt.init (Crdt.Id.replica deviceName) Types.todoDoc.schema
+                                }
+                      }
+                    , Cmd.none
+                    )
 
-                Ok todos ->
-                    case Crdt.Doc.decodeInto todos model.todoDoc of
+                _ ->
+                    Debug.todo (Debug.toString msg)
+
+        NeedsDeviceName _ ->
+            case msg of
+                DeviceNameSet deviceName ->
+                    ( { model
+                        | state =
+                            ReadyForTodos
+                                { hyperswarm = Loading
+                                , todoDoc = Crdt.init (Crdt.Id.replica deviceName) Types.todoDoc.schema
+                                }
+                      }
+                    , Cmd.none
+                    )
+
+                _ ->
+                    Debug.todo (Debug.toString msg)
+
+        SavingDeviceName _ ->
+            case msg of
+                DeviceNameSet deviceName ->
+                    ( { model
+                        | state =
+                            ReadyForTodos
+                                { hyperswarm = Loading
+                                , todoDoc = Crdt.init (Crdt.Id.replica deviceName) Types.todoDoc.schema
+                                }
+                      }
+                    , Cmd.none
+                    )
+
+                _ ->
+                    Debug.todo (Debug.toString msg)
+
+        ReadyForTodos ready ->
+            case msg of
+                AppReady ->
+                    ( { model | state = ReadyForTodos { ready | hyperswarm = Loaded () } }, Cmd.none )
+
+                TodosRecieved todosStr ->
+                    ( case Json.Decode.decodeString Json.Decode.value todosStr of
                         Err err ->
-                            Debug.todo err
+                            Debug.todo (Debug.toString err)
 
-                        Ok todoDoc ->
-                            { model | todoDoc = todoDoc }
-            , Cmd.none
-            )
+                        Ok todos ->
+                            case Crdt.Doc.decodeInto todos ready.todoDoc of
+                                Err err ->
+                                    Debug.todo err
+
+                                Ok todoDoc ->
+                                    { model | state = ReadyForTodos { ready | todoDoc = todoDoc } }
+                    , Cmd.none
+                    )
+
+                DeviceNameUnset ->
+                    Debug.todo "DeviceNameUnset"
+
+                DeviceNameSet deviceName ->
+                    ( { model
+                        | state =
+                            ReadyForTodos
+                                { hyperswarm = Loading
+                                , todoDoc =
+                                    Crdt.Doc.merge
+                                        ready.todoDoc
+                                        (Crdt.init (Crdt.Id.replica deviceName) Types.todoDoc.schema)
+                                }
+                      }
+                    , Cmd.none
+                    )
 
 
 view : FrontendModel -> Browser.Document FrontendMsg
 view model =
     { title = "Elm + Electron + Lamdera wire demo"
     , body =
-        [ let
-            newTodoValue =
-                model.todoDoc
-                    |> Crdt.Doc.read
-                    |> Result.map .newTodo
-                    |> Result.withDefault ""
-
-            todos =
-                model.todoDoc
-                    |> Crdt.Doc.read
-                    |> Result.map .todos
-                    |> Result.withDefault []
-          in
-          -- Html.div
-          --   []
-          --   [ case model.hyperswarm of
-          --       Loading ->
-          --           Html.text "Connecting to the swarm"
-          --       Error err ->
-          --           Html.text ("Failure with connecting to the swarm: " ++ err)
-          --       Loaded () ->
-          --           Html.text "Connected"
-          --   , Html.form
-          --       [ Html.Events.onSubmit (SaveNewTodo newTodoValue) ]
-          --       [ Html.label []
-          --           [ Html.span [] [ Html.text "New todo:" ]
-          --           , Html.input
-          --               [ Html.Attributes.value newTodoValue
-          --               , Html.Events.onInput UserChangedNewTodo
-          --               ]
-          --               []
-          --           ]
-          --       , Html.button
-          --           [ Html.Attributes.type_ "submit"
-          --           ]
-          --           [ Html.text "Save" ]
-          --       ]
-          --   , model.todoDoc
-          --       |> Crdt.Doc.read
-          --       |> Result.map .todos
-          --       |> Result.withDefault []
-          --       |> List.map
-          --           (\todo ->
-          --               Html.li []
-          --                   [ Html.text todo ]
-          --           )
-          --       |> Html.ul []
-          --   ]
-          Html.div [ Html.Attributes.class "todo-app" ]
-            [ -- statusBar model.syncStatus
-              case model.hyperswarm of
-                Loading ->
-                    Html.text "Connecting to the swarm"
-
-                Error err ->
-                    Html.text ("Failure with connecting to the swarm: " ++ err)
-
-                Loaded () ->
-                    Html.text "Connected"
-            , Html.div []
-                [ newTodoForm newTodoValue
-                , todoList todos
+        case model.state of
+            WaitingForDeviceName ->
+                [ Html.div [ Html.Attributes.class "loading-screen" ]
+                    [ Html.div [ Html.Attributes.class "loading-spinner" ] []
+                    , Html.div [ Html.Attributes.class "loading-message" ]
+                        [ Html.text "Loading" ]
+                    ]
                 ]
-            ]
-        ]
+
+            NeedsDeviceName deviceName ->
+                [ Html.div [ Html.Attributes.class "devicename-screen" ]
+                    [ Html.div [ Html.Attributes.class "devicename-card" ]
+                        [ Html.h1 [ Html.Attributes.class "devicename-title" ]
+                            [ Html.text "Welcome" ]
+                        , Html.p [ Html.Attributes.class "devicename-subtitle" ]
+                            [ Html.text "Choose a devicename to get started." ]
+                        , Html.form
+                            [ Html.Events.onSubmit (DeviceNameSubmitted deviceName)
+                            , Html.Attributes.class "devicename-form"
+                            ]
+                            [ Html.input
+                                [ Html.Attributes.value deviceName
+                                , Html.Events.onInput DeviceNameChanged
+                                , Html.Attributes.placeholder "Device name"
+                                ]
+                                []
+                            , Html.button
+                                [ Html.Attributes.type_ "submit"
+                                , Html.Attributes.disabled (String.trim deviceName == "")
+                                ]
+                                [ Html.text "Continue" ]
+                            ]
+                        ]
+                    ]
+                ]
+
+            SavingDeviceName deviceName ->
+                [ Html.div [ Html.Attributes.class "devicename-screen" ]
+                    [ Html.div [ Html.Attributes.class "devicename-card" ]
+                        [ Html.h1 [ Html.Attributes.class "devicename-title" ]
+                            [ Html.text "Welcome" ]
+                        , Html.p [ Html.Attributes.class "devicename-subtitle" ]
+                            [ Html.text "Choose a devicename to get started." ]
+                        , Html.form
+                            [ Html.Events.onSubmit (DeviceNameSubmitted deviceName)
+                            , Html.Attributes.class "devicename-form"
+                            ]
+                            [ Html.input
+                                [ Html.Attributes.value deviceName
+                                , Html.Events.onInput DeviceNameChanged
+                                , Html.Attributes.placeholder "Device name"
+                                ]
+                                []
+                            , Html.button
+                                [ Html.Attributes.type_ "submit"
+                                , Html.Attributes.disabled (String.trim deviceName == "")
+                                ]
+                                [ Html.text "Continue" ]
+                            ]
+                        ]
+                    ]
+                ]
+
+            ReadyForTodos ready ->
+                [ let
+                    newTodoValue =
+                        ready.todoDoc
+                            |> Crdt.Doc.read
+                            |> Result.map .newTodo
+                            |> Result.withDefault ""
+
+                    todos =
+                        ready.todoDoc
+                            |> Crdt.Doc.read
+                            |> Result.map .todos
+                            |> Result.withDefault []
+                  in
+                  Html.div [ Html.Attributes.class "todo-app" ]
+                    [ -- statusBar ready.syncStatus
+                      case ready.hyperswarm of
+                        Loading ->
+                            Html.text "Connecting to the swarm"
+
+                        Error err ->
+                            Html.text ("Failure with connecting to the swarm: " ++ err)
+
+                        Loaded () ->
+                            Html.text "Connected"
+                    , Html.div []
+                        [ newTodoForm newTodoValue
+                        , todoList todos
+                        ]
+                    ]
+                ]
     }
 
 
