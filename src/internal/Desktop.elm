@@ -4,7 +4,7 @@ module Desktop exposing
     , WindowOptions, FullScreen(..)
     , openWindow
     , openDebugWindow
-    , saveUserData, loadUserData
+    , saveUserData, loadUserData, FileError(..)
     , FrontendKey
     )
 
@@ -18,7 +18,7 @@ module Desktop exposing
 @docs WindowOptions, FullScreen
 @docs openWindow
 @docs openDebugWindow
-@docs saveUserData, loadUserData
+@docs saveUserData, loadUserData, FileError
 
 
 # Frontend
@@ -146,7 +146,14 @@ openDebugWindow _ _ toMsg options =
         }
 
 
-saveUserData : Desktop.Internal.BackendKey -> (Result String () -> msg) -> { filename : String, data : String } -> Cmd msg
+type FileError
+    = InternalError
+    | PathNameTooLong
+    | NoSuchFileOrDirectory
+    | UnknownError String
+
+
+saveUserData : Desktop.Internal.BackendKey -> (Result FileError () -> msg) -> { filename : String, data : String } -> Cmd msg
 saveUserData _ toMsg { filename, data } =
     Http.post
         { url = "elm-desktop:save-user-data"
@@ -157,16 +164,37 @@ saveUserData _ toMsg { filename, data } =
                 ]
                 |> Http.jsonBody
         , expect =
-            Http.expectJson
-                (\res ->
-                    Result.mapError Debug.toString res
-                        |> toMsg
+            Http.expectStringResponse
+                toMsg
+                (\response ->
+                    case response of
+                        Http.BadUrl_ _ ->
+                            Err InternalError
+
+                        Http.Timeout_ ->
+                            Err InternalError
+
+                        Http.NetworkError_ ->
+                            Err InternalError
+
+                        Http.BadStatus_ _ body ->
+                            case body of
+                                "ENOENT" ->
+                                    Err NoSuchFileOrDirectory
+
+                                "ENAMETOOLONG" ->
+                                    Err PathNameTooLong
+
+                                _ ->
+                                    Err (UnknownError body)
+
+                        Http.GoodStatus_ _ _ ->
+                            Ok ()
                 )
-                (Json.Decode.succeed ())
         }
 
 
-loadUserData : Desktop.Internal.BackendKey -> (Result String String -> msg) -> String -> Cmd msg
+loadUserData : Desktop.Internal.BackendKey -> (Result FileError String -> msg) -> String -> Cmd msg
 loadUserData _ toMsg filename =
     Http.post
         { url = "elm-desktop:load-user-data"
@@ -174,9 +202,31 @@ loadUserData _ toMsg filename =
             Http.jsonBody
                 (Json.Encode.string filename)
         , expect =
-            Http.expectString
-                (\res ->
-                    Result.mapError Debug.toString res
-                        |> toMsg
+            Http.expectStringResponse
+                toMsg
+                (\response ->
+                    case response of
+                        Http.BadUrl_ _ ->
+                            Err InternalError
+
+                        Http.Timeout_ ->
+                            Err InternalError
+
+                        Http.NetworkError_ ->
+                            Err InternalError
+
+                        Http.BadStatus_ _ body ->
+                            case body of
+                                "ENOENT" ->
+                                    Err NoSuchFileOrDirectory
+
+                                "ENAMETOOLONG" ->
+                                    Err PathNameTooLong
+
+                                _ ->
+                                    Err (UnknownError body)
+
+                        Http.GoodStatus_ _ body ->
+                            Ok body
                 )
         }

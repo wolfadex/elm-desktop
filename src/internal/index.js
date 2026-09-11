@@ -51,7 +51,7 @@ httpHijack("elm-desktop", globalThis, function (router) {
 
     fs.readFile(filePath, "utf-8", function (error, data) {
       if (error) {
-        res.error(error.toString());
+        res.error(error.code);
       } else {
         res.text(data);
       }
