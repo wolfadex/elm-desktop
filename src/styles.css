@@ -41,9 +41,35 @@ body {
   background: var(--surface);
 }
 
-.status-saving {
+.status-connected {
   color: var(--accent);
   border-color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.share-button {
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.15rem 0.6rem;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.share-button:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+.share-button:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
 }
 
 .status-syncing {
@@ -61,6 +87,192 @@ body {
 .status-error {
   color: var(--danger);
   border-color: var(--danger);
+}
+.share-panel {
+  /* reset browser default dialog chrome */
+  border: 1px solid var(--line);
+  padding: 1.25rem;
+  margin: auto; /* centers it when using showModal() */
+
+  font-family: "Inter", system-ui, sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  width: 90vw;
+  max-width: 320px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+  position: relative;
+}
+
+.share-panel::backdrop {
+  background: rgba(34, 38, 43, 0.45);
+}
+
+.share-panel:not([open]) {
+  display: none;
+}
+
+.dialog-close {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  line-height: 1;
+  border: none;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.dialog-close:hover {
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.dialog-close:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.qr-frame {
+  width: 200px;
+  height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+}
+
+.share-code {
+  width: 100%;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--muted);
+  word-break: break-all;
+  text-align: center;
+  padding: 0.5rem 0.6rem;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.copy-button {
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: 0.85rem;
+  padding: 0.4rem 0.9rem;
+  border: none;
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+}
+
+.copy-button:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+/* slim buttons for the first-run choice */
+
+.device-choice-button {
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.device-choice-button:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+.device-choice-button:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+/* connect dialog */
+
+.connect-dialog {
+  border: 1px solid var(--line);
+  padding: 1.25rem;
+  margin: auto;
+
+  font-family: "Inter", system-ui, sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.9rem;
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  width: 90vw;
+  max-width: 320px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+  position: relative;
+}
+
+.connect-dialog::backdrop {
+  background: rgba(34, 38, 43, 0.45);
+}
+
+.connect-dialog:not([open]) {
+  display: none;
+}
+
+.camera-frame {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  max-width: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--muted);
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+
+.dialog-divider {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.dialog-divider::before,
+.dialog-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.paste-code-input {
+  width: 100%;
 }
 
 /* ---- loading / error states ---- */

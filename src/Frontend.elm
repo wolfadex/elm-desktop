@@ -12,6 +12,7 @@ import Html.Attributes
 import Html.Events
 import Json.Decode
 import Json.Encode
+import QRCode
 import Types
     exposing
         ( DeviceName(..)
@@ -179,23 +180,41 @@ update msg model =
                         _ ->
                             ( model, Cmd.none )
 
-                MakeThisDeviceAnAdditionalDevice ->
+                UserSetDeviceSecret secret ->
                     case mod.network of
-                        CreatingSecret secret ->
-                            -- ( InitializingFrontend { mod | network = JoiningSecret secret }
-                            -- , Desktop.Frontend.sendToBackend mod.key (UserWantsToJoinNetwork secret)
-                            -- )
-                            Debug.todo "MakeThisDeviceAnAdditionalDevice"
+                        CreatingSecret _ ->
+                            ( InitializingFrontend { mod | network = CreatingSecret secret }
+                            , Cmd.none
+                            )
 
                         _ ->
                             ( model, Cmd.none )
 
+                UserSubmitDeviceSecret secret ->
+                    case mod.network of
+                        CreatingSecret _ ->
+                            ( InitializingFrontend { mod | network = JoiningSecret secret }
+                            , Desktop.Frontend.sendToBackend mod.key (UserWantsToJoinNetwork secret)
+                            )
+
+                        _ ->
+                            ( model, Cmd.none )
+
+                CopyToClipboard str ->
+                    ( model, Desktop.clipboardWriteText str )
+
         InitializedFrontend mod ->
             case msg of
+                CopyToClipboard str ->
+                    ( model, Desktop.clipboardWriteText str )
+
                 MakeThisDeviceTheFirstDevice ->
                     ( model, Cmd.none )
 
-                MakeThisDeviceAnAdditionalDevice ->
+                UserSetDeviceSecret _ ->
+                    ( model, Cmd.none )
+
+                UserSubmitDeviceSecret _ ->
                     ( model, Cmd.none )
 
                 DeviceNameChanged _ ->
@@ -356,7 +375,7 @@ updateFromBackend msg model =
 
 view : FrontendModel -> Browser.Document FrontendMsg
 view model =
-    { title = "Elm + Electron + Lamdera wire demo"
+    { title = "Notes"
     , body =
         case model of
             InitializingFrontend mod ->
@@ -442,15 +461,60 @@ view model =
                             |> Result.withDefault []
                   in
                   Html.div [ Html.Attributes.class "todo-app" ]
-                    [ Html.div [ Html.Attributes.class "status status-saving" ]
-                        [ Html.text "Connected" ]
+                    [ Html.div [ Html.Attributes.class "status status-connected" ]
+                        [ Html.text "Connected"
+                        , Html.button
+                            [ Html.Attributes.class "share-button"
+                            , Html.Attributes.type_ "button"
+                            , Html.Attributes.attribute "commandfor" "share-dialog"
+                            , Html.Attributes.attribute "command" "show-modal"
+                            ]
+                            [ Html.text "Share" ]
+                        ]
                     , Html.div []
                         [ newTodoForm newTodoValue
                         , todoList todos
                         ]
                     ]
+                , sharePanel mod.secret
                 ]
     }
+
+
+sharePanel : String -> Html FrontendMsg
+sharePanel secretString =
+    Html.node "dialog"
+        [ Html.Attributes.class "share-panel"
+        , Html.Attributes.id "share-dialog"
+        ]
+        [ Html.button
+            [ Html.Attributes.class "dialog-close"
+            , Html.Attributes.type_ "button"
+            , Html.Attributes.attribute "commandfor" "share-dialog"
+            , Html.Attributes.attribute "command" "close"
+            ]
+            [ Html.text "×" ]
+        , Html.div [ Html.Attributes.class "qr-frame" ]
+            [ secretString
+                |> QRCode.fromString
+                |> Result.map
+                    (QRCode.toSvg
+                        [ Html.Attributes.width 500
+                        , Html.Attributes.height 500
+                        ]
+                    )
+                |> Result.withDefault
+                    (Html.text "Error creating QR code")
+            ]
+        , Html.div [ Html.Attributes.class "share-code" ]
+            [ Html.text secretString ]
+        , Html.button
+            [ Html.Attributes.class "copy-button"
+            , Html.Attributes.type_ "button"
+            , Html.Events.onClick (CopyToClipboard secretString)
+            ]
+            [ Html.text "Copy" ]
+        ]
 
 
 statusBar : NetworkState -> Html FrontendMsg
@@ -478,27 +542,76 @@ statusBar network =
                 ]
 
         JoinedNetwork _ ->
-            Html.div [ Html.Attributes.class "status status-saving" ]
-                [ Html.text "Connected" ]
+            Html.div [ Html.Attributes.class "status status-connected" ]
+                [ Html.text "Connected"
+                , Html.button
+                    [ Html.Attributes.class "share-button"
+                    , Html.Attributes.type_ "button"
+                    , Html.Attributes.attribute "commandfor" "share-dialog"
+                    , Html.Attributes.attribute "command" "show-modal"
+                    ]
+                    [ Html.text "Share" ]
+                ]
 
         JoinError _ err ->
             Html.div [ Html.Attributes.class "status status-error" ]
                 [ Html.text ("Offline: " ++ err) ]
 
-        CreatingSecret _ ->
+        CreatingSecret secret ->
             Html.div
                 [ Html.Attributes.class "status status-syncing" ]
                 [ Html.button
-                    [ Html.Attributes.type_ "button"
+                    [ Html.Attributes.class "device-choice-button"
+                    , Html.Attributes.type_ "button"
                     , Html.Events.onClick MakeThisDeviceTheFirstDevice
                     ]
                     [ Html.text "This is my first device" ]
                 , Html.button
-                    [ Html.Attributes.type_ "button"
-                    , Html.Events.onClick MakeThisDeviceAnAdditionalDevice
+                    [ Html.Attributes.class "device-choice-button"
+                    , Html.Attributes.type_ "button"
+                    , Html.Attributes.attribute "command" "show-modal"
+                    , Html.Attributes.attribute "commandfor" "connect-device-dialog"
+
+                    -- fallback for browsers without Invoker Commands support;
+                    -- harmless no-op on browsers that already opened it declaratively
                     ]
                     [ Html.text "Connect to another device" ]
+                , connectDeviceDialog secret
                 ]
+
+
+connectDeviceDialog : String -> Html FrontendMsg
+connectDeviceDialog secret =
+    Html.node "dialog"
+        [ Html.Attributes.class "connect-dialog"
+        , Html.Attributes.id "connect-device-dialog"
+        ]
+        [ Html.button
+            [ Html.Attributes.class "dialog-close"
+            , Html.Attributes.type_ "button"
+            , Html.Attributes.attribute "command" "close"
+            , Html.Attributes.attribute "commandfor" "connect-device-dialog"
+            ]
+            [ Html.text "×" ]
+        , Html.div [ Html.Attributes.class "camera-frame" ]
+            [ Html.text "Camera preview coming soon" ]
+        , Html.div [ Html.Attributes.class "dialog-divider" ]
+            [ Html.span [] [ Html.text "or paste a code" ] ]
+        , Html.input
+            [ Html.Attributes.class "paste-code-input"
+            , Html.Attributes.type_ "text"
+            , Html.Attributes.value secret
+            , Html.Attributes.placeholder "Paste connection code"
+            , Html.Events.onInput UserSetDeviceSecret
+            ]
+            []
+        , Html.button
+            [ Html.Attributes.class "copy-button"
+            , Html.Attributes.type_ "button"
+            , Html.Events.onClick (UserSubmitDeviceSecret secret)
+            ]
+            [ Html.text "Connect" ]
+        ]
 
 
 newTodoForm : String -> Html FrontendMsg

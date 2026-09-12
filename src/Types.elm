@@ -75,10 +75,12 @@ type FrontendMsg
     = DeviceNameChanged String
     | DeviceNameSubmitted String
     | MakeThisDeviceTheFirstDevice
-    | MakeThisDeviceAnAdditionalDevice
     | UserChangedNewTodo String
     | SaveNewTodo String
     | RemoveTodo Int
+    | CopyToClipboard String
+    | UserSetDeviceSecret String
+    | UserSubmitDeviceSecret String
 
 
 type alias Settings =
