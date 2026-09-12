@@ -1,7 +1,7 @@
 const path = require("node:path");
 const fs = require("node:fs");
 
-const { app, BrowserWindow, ipcMain } = require("electron");
+const { app, BrowserWindow, ipcMain, clipboard } = require("electron");
 
 require("./XMLHttpRequest.js");
 const httpHijack = require("./http-hijack.js").default;
@@ -101,10 +101,18 @@ function initializeElm() {
       window.webContents.send("from-backend", msg);
     }
   });
+
+  app.ports.clipboardWriteText?.subscribe(async function (text) {
+    await clipboard.writeText(text);
+  });
 }
 
 ipcMain.on("to-backend", (event, [windowId, arrayBuffer]) => {
   elmApp.ports.toBackend?.send([windowId, arrayBuffer]);
+});
+
+ipcMain.on("clipboard-writetext", async (event, text) => {
+  await clipboard.writeText(text);
 });
 
 // This method will be called when Electron has finished

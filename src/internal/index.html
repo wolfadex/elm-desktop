@@ -30,6 +30,10 @@
       app.ports.sendToBackend?.subscribe(function(msg) {
         electronAPI.sendToBackend([windowId,msg]);
       });
+
+      app.ports.clipboardWriteText?.subscribe(function(text) {
+        electronAPI.clipboardWriteText(text);
+      });
     </script>
   </body>
 </html>

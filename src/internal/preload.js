@@ -14,4 +14,5 @@ contextBridge.exposeInMainWorld("electronAPI", {
       callback(windowId),
     );
   },
+  clipboardWriteText: (text) => ipcRenderer.send("clipboard-writetext", text),
 });

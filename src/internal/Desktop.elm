@@ -1,4 +1,4 @@
-module Desktop exposing
+port module Desktop exposing
     ( BackendKey
     , Window
     , WindowOptions, FullScreen(..)
@@ -6,6 +6,7 @@ module Desktop exposing
     , openDebugWindow
     , saveUserData, loadUserData, FileError(..)
     , FrontendKey
+    , clipboardWriteText
     )
 
 {-|
@@ -24,6 +25,11 @@ module Desktop exposing
 # Frontend
 
 @docs FrontendKey
+
+
+# Both
+
+@docs clipboardWriteText
 
 -}
 
@@ -230,3 +236,6 @@ loadUserData _ toMsg filename =
                             Ok body
                 )
         }
+
+
+port clipboardWriteText : String -> Cmd msg
