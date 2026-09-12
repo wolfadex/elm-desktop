@@ -141,7 +141,7 @@ update msg model =
             case model.hyperswarm of
                 Joined swarm ->
                     ( { model | hyperswarm = Joined { swarm | peers = Dict.insert publicKey socket swarm.peers } }
-                    , case List.sort (swarm.myPublicKey :: publicKey :: Dict.keys swarm.peers) of
+                    , case List.sort (swarm.myPublicKey :: Dict.keys swarm.peers) of
                         leader :: _ ->
                             if leader == swarm.myPublicKey then
                                 case model.savedTodos of
@@ -283,7 +283,13 @@ update msg model =
             )
 
         SwarmError error ->
-            Debug.todo ("SwarmError: " ++ error)
+            case error of
+                "ECONNRESET" ->
+                    -- A user has disconnected, I think
+                    ( model, Cmd.none )
+
+                _ ->
+                    Debug.todo ("SwarmError: " ++ error)
 
         DataReceived ( False, _ ) ->
             Debug.todo "Failed to decrypt the data"
@@ -323,7 +329,7 @@ update msg model =
 
 updateFromFrontend : Desktop.Window -> ToBackend -> BackendModel -> ( BackendModel, Cmd BackendMsg )
 updateFromFrontend window msg model =
-    case Debug.log "updateFromFrontend" msg of
+    case msg of
         SetDeviceName deviceName ->
             case model.settings of
                 Loading ->
