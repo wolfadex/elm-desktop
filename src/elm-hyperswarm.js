@@ -18,11 +18,12 @@ function hkdf(secret, info, length = 32) {
 }
 
 function encrypt(message, key) {
+  const messageBuffer = Buffer.from(message);
   const nonce = crypto.randomBytes(sodium.crypto_secretbox_NONCEBYTES);
   const cipher = Buffer.alloc(
-    message.length + sodium.crypto_secretbox_MACBYTES,
+    messageBuffer.length + sodium.crypto_secretbox_MACBYTES,
   );
-  sodium.crypto_secretbox_easy(cipher, message, nonce, key);
+  sodium.crypto_secretbox_easy(cipher, messageBuffer, nonce, key);
   return Buffer.concat([nonce, cipher]); // prepend nonce so decrypt can read it
 }
 
@@ -35,7 +36,7 @@ function decrypt(payload, key) {
   if (!sodium.crypto_secretbox_open_easy(message, cipher, nonce, key)) {
     return [false];
   }
-  return [true, message];
+  return [true, message.toString()];
 }
 
 async function joinSwarm({

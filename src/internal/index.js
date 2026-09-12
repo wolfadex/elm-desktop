@@ -48,7 +48,6 @@ httpHijack("elm-desktop", globalThis, function (router) {
   router.post("load-user-data", function (req, res) {
     const filename = req.json;
     const filePath = path.join(app.getPath("userData"), filename);
-    console.log(filePath)
 
     fs.readFile(filePath, "utf-8", function (error, data) {
       if (error) {
