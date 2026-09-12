@@ -191,7 +191,7 @@ update msg model =
                             ( model, Cmd.none )
 
                 UserSubmitDeviceSecret secret ->
-                    case mod.network of
+                    case Debug.log "UserSubmitDeviceSecret" mod.network of
                         CreatingSecret _ ->
                             ( InitializingFrontend { mod | network = JoiningSecret secret }
                             , Desktop.Frontend.sendToBackend mod.key (UserWantsToJoinNetwork secret)

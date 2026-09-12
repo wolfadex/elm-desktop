@@ -136,6 +136,7 @@ function initialize(appName, callback) {
 function initializeFromSecret(appName, base64Secret, callback) {
   const secretPath = path.join(process.env.HOME, `.${appName}`, "secret");
   const secret = Buffer.from(base64Secret, "base64url");
+  fs.mkdirSync(path.dirname(secretPath), { recursive: true });
   fs.writeFileSync(secretPath, secret, { mode: 0o600 });
   const topic = hkdf(secret, `${appName}-swarm-topic-v1`); // used for swarm.join()
   const payloadKey = hkdf(secret, `${appName}-payload-key-v1`); // used for encrypting data

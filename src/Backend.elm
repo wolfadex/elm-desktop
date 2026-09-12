@@ -323,7 +323,7 @@ update msg model =
 
 updateFromFrontend : Desktop.Window -> ToBackend -> BackendModel -> ( BackendModel, Cmd BackendMsg )
 updateFromFrontend window msg model =
-    case msg of
+    case Debug.log "updateFromFrontend" msg of
         SetDeviceName deviceName ->
             case model.settings of
                 Loading ->
