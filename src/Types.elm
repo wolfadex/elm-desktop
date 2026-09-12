@@ -3,6 +3,7 @@ module Types exposing (..)
 import Crdt
 import Crdt.Doc
 import Desktop
+import Dict exposing (Dict)
 import Json.Decode
 import Json.Encode
 
@@ -105,8 +106,14 @@ type alias BackendModel =
     { key : Desktop.BackendKey
     , window : Maybe Desktop.Window
     , settings : RemoteData Desktop.FileError Settings
-    , hyperswarm : RemoteData String ()
+    , hyperswarm : RemoteData String Hyperswarm
     , savedTodos : Maybe String
+    }
+
+
+type alias Hyperswarm =
+    { myPublicKey : String
+    , peers : Dict String Json.Encode.Value
     }
 
 
@@ -118,7 +125,9 @@ type RemoteData e a
 
 type BackendMsg
     = WindowOpened (Result String Desktop.Window)
-    | SwarmReady ()
+    | PeerConnected ( String, Json.Encode.Value )
+    | PeerDisconnected String
+    | SwarmReady String
     | DataReceived String
     | SettingsLoaded (Result Desktop.FileError String)
     | SettingsSaved Settings (Result Desktop.FileError ())

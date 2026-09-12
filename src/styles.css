@@ -49,6 +49,13 @@ body {
 .status-syncing {
   color: var(--accent);
   border-color: var(--accent);
+  display: flex;
+  gap: 1rem;
+
+  .loading-spinner {
+    width: 1rem;
+    height: 1rem;
+  }
 }
 
 .status-error {

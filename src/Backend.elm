@@ -2,6 +2,7 @@ port module Backend exposing (main)
 
 import Desktop
 import Desktop.Backend
+import Dict
 import Json.Decode
 import Json.Encode
 import Types exposing (..)
@@ -58,7 +59,7 @@ appName =
 port initializeHyperswarm : String -> Cmd msg
 
 
-port swarmReady : (() -> msg) -> Sub msg
+port swarmReady : (String -> msg) -> Sub msg
 
 
 port sendData : String -> Cmd msg
@@ -67,17 +68,59 @@ port sendData : String -> Cmd msg
 port dataReceived : (String -> msg) -> Sub msg
 
 
+port peerConnected : (( String, Json.Encode.Value ) -> msg) -> Sub msg
+
+
+port peerDisconnected : (String -> msg) -> Sub msg
+
+
 subscriptions : BackendModel -> Sub BackendMsg
 subscriptions _ =
     Sub.batch
         [ swarmReady SwarmReady
         , dataReceived DataReceived
+        , peerConnected PeerConnected
+        , peerDisconnected PeerDisconnected
         ]
 
 
 update : BackendMsg -> BackendModel -> ( BackendModel, Cmd BackendMsg )
 update msg model =
     case msg of
+        PeerConnected ( publicKey, socket ) ->
+            case model.hyperswarm of
+                Loaded hyperswarm ->
+                    ( { model | hyperswarm = Loaded { hyperswarm | peers = Dict.insert publicKey socket hyperswarm.peers } }
+                    , case List.sort (hyperswarm.myPublicKey :: publicKey :: Dict.keys hyperswarm.peers) of
+                        leader :: _ ->
+                            if leader == hyperswarm.myPublicKey then
+                                case model.savedTodos of
+                                    Nothing ->
+                                        Cmd.none
+
+                                    Just todos ->
+                                        sendData todos
+
+                            else
+                                Cmd.none
+
+                        _ ->
+                            Cmd.none
+                    )
+
+                _ ->
+                    ( model, Cmd.none )
+
+        PeerDisconnected publicKey ->
+            case model.hyperswarm of
+                Loaded hyperswarm ->
+                    ( { model | hyperswarm = Loaded { hyperswarm | peers = Dict.remove publicKey hyperswarm.peers } }
+                    , Cmd.none
+                    )
+
+                _ ->
+                    ( model, Cmd.none )
+
         WindowOpened (Err err) ->
             let
                 _ =
@@ -89,7 +132,7 @@ update msg model =
             ( { model | window = Just window }
             , Cmd.batch
                 [ case model.hyperswarm of
-                    Loaded () ->
+                    Loaded _ ->
                         Desktop.Backend.sendToFrontend model.key window AppReady
 
                     _ ->
@@ -158,8 +201,14 @@ update msg model =
                     , Desktop.Backend.sendToFrontend model.key window (DeviceNameSet settings.deviceName)
                     )
 
-        SwarmReady () ->
-            ( { model | hyperswarm = Loaded () }
+        SwarmReady myPublicKey ->
+            ( { model
+                | hyperswarm =
+                    Loaded
+                        { myPublicKey = myPublicKey
+                        , peers = Dict.empty
+                        }
+              }
             , case model.window of
                 Nothing ->
                     Cmd.none
@@ -240,7 +289,7 @@ updateFromFrontend window msg model =
                     )
 
         SaveTodos todos ->
-            ( model
+            ( { model | savedTodos = Just todos }
             , Cmd.batch
                 [ Desktop.saveUserData model.key
                     TodosSaved

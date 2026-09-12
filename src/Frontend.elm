@@ -307,16 +307,7 @@ view model =
                             |> Result.withDefault []
                   in
                   Html.div [ Html.Attributes.class "todo-app" ]
-                    [ -- statusBar ready.syncStatus
-                      case ready.hyperswarm of
-                        Loading ->
-                            Html.text "Connecting to the swarm"
-
-                        Error err ->
-                            Html.text ("Failure with connecting to the swarm: " ++ err)
-
-                        Loaded () ->
-                            Html.text "Connected"
+                    [ statusBar ready.hyperswarm
                     , Html.div []
                         [ newTodoForm newTodoValue
                         , todoList todos
@@ -326,20 +317,23 @@ view model =
     }
 
 
+statusBar : RemoteData String () -> Html FrontendMsg
+statusBar hyperswarm =
+    case hyperswarm of
+        Loading ->
+            Html.div
+                [ Html.Attributes.class "status status-syncing" ]
+                [ Html.text "Connecting…"
+                , Html.div [ Html.Attributes.class "loading-spinner" ] []
+                ]
 
--- statusBar : SyncStatus -> Html Msg
--- statusBar syncStatus =
---     case syncStatus of
---         Idle ->
---             Html.text ""
---         Saving ->
---             Html.div [ Html.Attributes.class "status status-saving" ] [ Html.text "Saving…" ]
---         ReceivingRemoteChanges ->
---             Html.div [ Html.Attributes.class "status status-syncing" ]
---                 [ Html.text "Updating from another device…" ]
---         SyncFailed err ->
---             Html.div [ Html.Attributes.class "status status-error" ]
---                 [ Html.text ("Couldn't save: " ++ err) ]
+        Loaded () ->
+            Html.div [ Html.Attributes.class "status status-saving" ]
+                [ Html.text "Connected" ]
+
+        Error err ->
+            Html.div [ Html.Attributes.class "status status-error" ]
+                [ Html.text ("Offline: " ++ err) ]
 
 
 newTodoForm : String -> Html FrontendMsg

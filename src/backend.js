@@ -13,12 +13,11 @@ function flags() {
 function ports(app) {
   app.ports.initializeHyperswarm.subscribe(async function (appName) {
     swarm = new Hyperswarm();
+    const myPublicKey = swarm.keyPair.publicKey.toString("hex");
     topic = crypto.createHash("sha256").update(appName).digest();
     discovery = swarm.join(topic, { server: true, client: true });
 
     swarm.on("connection", (socket, info) => {
-      console.log(`Connected to peer! (initiator: ${info.client})`);
-
       socket.on("data", (data) => {
         const dataStr = data.toString();
         app.ports.dataReceived.send(dataStr);
@@ -30,15 +29,14 @@ function ports(app) {
         }
       });
       socket.on("close", () => {
-        // TODO
-        console.log(
-          "❌ Peer disconnected. Hyperswarm will auto-reconnect when back online.",
-        );
+        peers.delete(remoteKey.toString("hex"));
+        app.ports.peerDisconnected.send(info.publicKey.toString("hex"));
       });
 
-      app.ports.sendData?.subscribe(function (data) {
+      app.ports.sendData.subscribe(function (data) {
         socket.write(data);
       });
+      app.ports.peerConnected.send([info.publicKey.toString("hex"), socket]);
     });
 
     try {
@@ -48,7 +46,7 @@ function ports(app) {
       console.error(error);
     }
 
-    app.ports.swarmReady.send(null);
+    app.ports.swarmReady.send(myPublicKey);
   });
 
   process.on("SIGINT", async () => {
