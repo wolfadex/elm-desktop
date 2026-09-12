@@ -162,6 +162,7 @@ button:focus-visible {
   background: var(--surface);
   color: var(--muted);
   cursor: pointer;
+  padding: 0;
 }
 
 .remove-button:hover {
