@@ -2,6 +2,7 @@ const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 const Hyperswarm = require("hyperswarm");
+const sodium = require("sodium-native");
 
 // let appName;
 // let secretPath;
