@@ -12,6 +12,11 @@ type alias Flags =
     {}
 
 
+appName : String
+appName =
+    "wolfadex-notes"
+
+
 main : Program Flags BackendModel Desktop.Backend.Msg
 main =
     Desktop.Backend.worker
@@ -27,8 +32,8 @@ init {} key =
     ( { key = key
       , window = Nothing
       , settings = Loading
-      , hyperswarm = Loading
       , savedTodos = Nothing
+      , hyperswarm = Uninitialized
       }
     , Cmd.batch
         [ Desktop.openDebugWindow Debug.todo
@@ -47,25 +52,36 @@ init {} key =
             , resizable = True
             }
         , Desktop.loadUserData key SettingsLoaded "settings.json"
+        , checkExistingSecret appName
         ]
     )
 
 
-appName : String
-appName =
-    "wolfadex-todo"
+port checkExistingSecret : String -> Cmd msg
 
 
-port initializeHyperswarm : String -> Cmd msg
+port doesSecretExist : (Maybe String -> msg) -> Sub msg
 
 
-port swarmReady : (String -> msg) -> Sub msg
+port createNotesStore : String -> Cmd msg
+
+
+port joinNotesStore : ( String, String ) -> Cmd msg
+
+
+port storeReady : ({ secret : String, topic : Json.Encode.Value, payloadKey : Json.Encode.Value } -> msg) -> Sub msg
+
+
+port joinHyperswarm : { secret : String, topic : Json.Encode.Value, payloadKey : Json.Encode.Value } -> Cmd msg
+
+
+port swarmReady : ({ secret : String, payloadKey : Json.Encode.Value, topic : Json.Encode.Value, myPublicKey : String } -> msg) -> Sub msg
 
 
 port sendData : String -> Cmd msg
 
 
-port dataReceived : (String -> msg) -> Sub msg
+port dataReceived : (( Bool, String ) -> msg) -> Sub msg
 
 
 port peerConnected : (( String, Json.Encode.Value ) -> msg) -> Sub msg
@@ -74,26 +90,60 @@ port peerConnected : (( String, Json.Encode.Value ) -> msg) -> Sub msg
 port peerDisconnected : (String -> msg) -> Sub msg
 
 
+port swarmError : (String -> msg) -> Sub msg
+
+
 subscriptions : BackendModel -> Sub BackendMsg
 subscriptions _ =
     Sub.batch
-        [ swarmReady SwarmReady
+        [ doesSecretExist DoesSecretExist
+        , storeReady StoreReady
+        , swarmReady SwarmReady
         , dataReceived DataReceived
         , peerConnected PeerConnected
         , peerDisconnected PeerDisconnected
+        , swarmError SwarmError
         ]
 
 
 update : BackendMsg -> BackendModel -> ( BackendModel, Cmd BackendMsg )
 update msg model =
     case msg of
+        DoesSecretExist Nothing ->
+            ( { model | hyperswarm = CreateOrJoin }
+            , case model.window of
+                Nothing ->
+                    Cmd.none
+
+                Just window ->
+                    Desktop.Backend.sendToFrontend model.key window PickCreateOrJoin
+            )
+
+        DoesSecretExist (Just secret) ->
+            ( { model | hyperswarm = Initializing secret }
+            , Cmd.batch
+                [ createNotesStore appName
+                , case model.window of
+                    Nothing ->
+                        Cmd.none
+
+                    Just window ->
+                        Desktop.Backend.sendToFrontend model.key window (InitializingSwarm secret)
+                ]
+            )
+
+        StoreReady data ->
+            ( { model | hyperswarm = Joining data }
+            , joinHyperswarm data
+            )
+
         PeerConnected ( publicKey, socket ) ->
             case model.hyperswarm of
-                Loaded hyperswarm ->
-                    ( { model | hyperswarm = Loaded { hyperswarm | peers = Dict.insert publicKey socket hyperswarm.peers } }
-                    , case List.sort (hyperswarm.myPublicKey :: publicKey :: Dict.keys hyperswarm.peers) of
+                Joined swarm ->
+                    ( { model | hyperswarm = Joined { swarm | peers = Dict.insert publicKey socket swarm.peers } }
+                    , case List.sort (swarm.myPublicKey :: publicKey :: Dict.keys swarm.peers) of
                         leader :: _ ->
-                            if leader == hyperswarm.myPublicKey then
+                            if leader == swarm.myPublicKey then
                                 case model.savedTodos of
                                     Nothing ->
                                         Cmd.none
@@ -113,8 +163,8 @@ update msg model =
 
         PeerDisconnected publicKey ->
             case model.hyperswarm of
-                Loaded hyperswarm ->
-                    ( { model | hyperswarm = Loaded { hyperswarm | peers = Dict.remove publicKey hyperswarm.peers } }
+                Joined swarm ->
+                    ( { model | hyperswarm = Joined { swarm | peers = Dict.remove publicKey swarm.peers } }
                     , Cmd.none
                     )
 
@@ -132,8 +182,14 @@ update msg model =
             ( { model | window = Just window }
             , Cmd.batch
                 [ case model.hyperswarm of
-                    Loaded _ ->
-                        Desktop.Backend.sendToFrontend model.key window AppReady
+                    Initializing secret ->
+                        Desktop.Backend.sendToFrontend model.key window (InitializingSwarm secret)
+
+                    Joining data ->
+                        Desktop.Backend.sendToFrontend model.key window (InitializingSwarm data.secret)
+
+                    Joined swarm ->
+                        Desktop.Backend.sendToFrontend model.key window (NetworkJoined swarm.secret)
 
                     _ ->
                         Cmd.none
@@ -150,6 +206,12 @@ update msg model =
 
                         else
                             Desktop.Backend.sendToFrontend model.key window (DeviceNameSet settings.deviceName)
+
+                    _ ->
+                        Cmd.none
+                , case model.hyperswarm of
+                    CreateOrJoin ->
+                        Desktop.Backend.sendToFrontend model.key window PickCreateOrJoin
 
                     _ ->
                         Cmd.none
@@ -201,12 +263,15 @@ update msg model =
                     , Desktop.Backend.sendToFrontend model.key window (DeviceNameSet settings.deviceName)
                     )
 
-        SwarmReady myPublicKey ->
+        SwarmReady data ->
             ( { model
                 | hyperswarm =
-                    Loaded
-                        { myPublicKey = myPublicKey
+                    Joined
+                        { myPublicKey = data.myPublicKey
                         , peers = Dict.empty
+                        , secret = data.secret
+                        , payloadKey = data.payloadKey
+                        , topic = data.topic
                         }
               }
             , case model.window of
@@ -214,10 +279,16 @@ update msg model =
                     Cmd.none
 
                 Just window ->
-                    Desktop.Backend.sendToFrontend model.key window AppReady
+                    Desktop.Backend.sendToFrontend model.key window (NetworkJoined data.secret)
             )
 
-        DataReceived data ->
+        SwarmError error ->
+            Debug.todo ("SwarmError: " ++ error)
+
+        DataReceived ( False, _ ) ->
+            Debug.todo "Failed to decrypt the data"
+
+        DataReceived ( True, data ) ->
             ( model
             , case model.window of
                 Nothing ->
@@ -234,18 +305,18 @@ update msg model =
             ( model, Cmd.none )
 
         TodosLoaded (Err err) ->
-            ( model, initializeHyperswarm appName )
+            ( model, Cmd.none )
 
         TodosLoaded (Ok savedTodos) ->
             case model.window of
                 Nothing ->
-                    ( { model | savedTodos = Just savedTodos }, initializeHyperswarm appName )
+                    ( { model | savedTodos = Just savedTodos }, Cmd.none )
 
                 Just window ->
                     ( model
                     , Cmd.batch
                         [ Desktop.Backend.sendToFrontend model.key window (TodosRecieved savedTodos)
-                        , initializeHyperswarm appName
+                        , Cmd.none
                         ]
                     )
 
@@ -298,4 +369,14 @@ updateFromFrontend window msg model =
                     }
                 , sendData todos
                 ]
+            )
+
+        UserWantToCreateNetwork ->
+            ( model
+            , createNotesStore appName
+            )
+
+        UserWantsToJoinNetwork secret ->
+            ( model
+            , joinNotesStore ( appName, secret )
             )

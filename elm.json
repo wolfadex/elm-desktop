@@ -18,14 +18,20 @@
             "gampleman/elm-crdt": "1.0.0",
             "lamdera/codecs": "1.0.0",
             "lamdera/containers": "1.0.0",
-            "lamdera/core": "1.0.0"
+            "lamdera/core": "1.0.0",
+            "pablohirafuji/elm-qrcode": "4.0.3"
         },
         "indirect": {
+            "avh4/elm-color": "1.0.0",
             "danfishgold/base64-bytes": "1.1.0",
             "elm/file": "1.0.5",
             "elm/random": "1.0.0",
+            "elm/regex": "1.0.0",
+            "elm/svg": "1.0.1",
             "elm/time": "1.0.0",
-            "elm/virtual-dom": "1.0.5"
+            "elm/virtual-dom": "1.0.5",
+            "folkertdev/elm-flate": "2.0.6",
+            "justgook/elm-image": "5.0.0"
         }
     },
     "test-dependencies": {

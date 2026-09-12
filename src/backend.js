@@ -1,9 +1,4 @@
-const crypto = require("node:crypto");
-const Hyperswarm = require("hyperswarm");
-
-let swarm;
-let topic;
-let discovery;
+const elmHyperswarm = require("./elm-hyperswarm");
 
 // Additional backend code to run
 function flags() {
@@ -11,50 +6,34 @@ function flags() {
 }
 
 function ports(app) {
-  app.ports.initializeHyperswarm.subscribe(async function (appName) {
-    swarm = new Hyperswarm();
-    const myPublicKey = swarm.keyPair.publicKey.toString("hex");
-    topic = crypto.createHash("sha256").update(appName).digest();
-    discovery = swarm.join(topic, { server: true, client: true });
-
-    swarm.on("connection", (socket, info) => {
-      socket.on("data", (data) => {
-        const dataStr = data.toString();
-        app.ports.dataReceived.send(dataStr);
-      });
-      socket.on("error", (err) => {
-        if (err.code !== "ECONNRESET") {
-          // TODO
-          console.error("Socket error:", err.message);
-        }
-      });
-      socket.on("close", () => {
-        peers.delete(remoteKey.toString("hex"));
-        app.ports.peerDisconnected.send(info.publicKey.toString("hex"));
-      });
-
-      app.ports.sendData.subscribe(function (data) {
-        socket.write(data);
-      });
-      app.ports.peerConnected.send([info.publicKey.toString("hex"), socket]);
-    });
-
-    try {
-      await discovery.flushed();
-    } catch (error) {
-      // TODO
-      console.error(error);
-    }
-
-    app.ports.swarmReady.send(myPublicKey);
+  app.ports.checkExistingSecret.subscribe(function (name) {
+    elmHyperswarm.secretExists(name, app.ports.doesSecretExist.send);
+  });
+  app.ports.createNotesStore.subscribe(function (name) {
+    elmHyperswarm.initialize(name, app.ports.storeReady.send);
   });
 
-  process.on("SIGINT", async () => {
-    if (swarm) {
-      await swarm.destroy();
-    }
+  app.ports.joinNotesStore.subscribe(function ([name, base64Secret]) {
+    elmHyperswarm.initializeFromSecret(
+      name,
+      base64Secret,
+      app.ports.storeReady.send,
+    );
+  });
 
-    process.exit(0);
+  app.ports.joinHyperswarm.subscribe(function (data) {
+    elmHyperswarm.joinSwarm({
+      secret: data.secret,
+      payloadKey: data.payloadKey,
+      topic: data.topic,
+      //
+      onJoined: app.ports.swarmReady.send,
+      onDataReceived: app.ports.dataReceived.send,
+      onClose: app.ports.peerDisconnected.send,
+      onPeerConnected: app.ports.peerConnected.send,
+      onError: app.ports.swarmError.send,
+      sendData: app.ports.sendData.subscribe,
+    });
   });
 }
 

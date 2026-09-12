@@ -11,32 +11,38 @@ import Json.Encode
 type ToBackend
     = SaveTodos String
     | SetDeviceName String
+    | UserWantToCreateNetwork
+    | UserWantsToJoinNetwork String
 
 
 type ToFrontend
-    = AppReady
+    = PickCreateOrJoin
+    | InitializingSwarm String
+    | NetworkJoined String
     | TodosRecieved String
     | DeviceNameUnset
     | DeviceNameSet String
 
 
-type alias FrontendModel =
-    { key : Desktop.FrontendKey
-    , state : FrontendState
-    }
+type FrontendModel
+    = InitializingFrontend { key : Desktop.FrontendKey, deviceName : DeviceName, network : NetworkState }
+    | InitializedFrontend { key : Desktop.FrontendKey, todoDoc : Crdt.Doc.Doc Todo, secret : String }
 
 
-type FrontendState
-    = WaitingForDeviceName
-    | NeedsDeviceName String
-    | SavingDeviceName String
-    | ReadyForTodos FrontendReady
+type DeviceName
+    = LocatingName
+    | NeedsName String
+    | SettingName String
+    | HasName (Crdt.Doc.Doc Todo)
 
 
-type alias FrontendReady =
-    { hyperswarm : RemoteData String ()
-    , todoDoc : Crdt.Doc.Doc Todo
-    }
+type NetworkState
+    = FindingSecret
+    | CreatingSecret String
+    | JoiningSecret String
+    | JoiningNetwork String
+    | JoinError String String
+    | JoinedNetwork String
 
 
 type alias Todo =
@@ -68,6 +74,8 @@ type TodoStatus
 type FrontendMsg
     = DeviceNameChanged String
     | DeviceNameSubmitted String
+    | MakeThisDeviceTheFirstDevice
+    | MakeThisDeviceAnAdditionalDevice
     | UserChangedNewTodo String
     | SaveNewTodo String
     | RemoveTodo Int
@@ -106,14 +114,25 @@ type alias BackendModel =
     { key : Desktop.BackendKey
     , window : Maybe Desktop.Window
     , settings : RemoteData Desktop.FileError Settings
-    , hyperswarm : RemoteData String Hyperswarm
     , savedTodos : Maybe String
+    , hyperswarm : Hyperswarm
     }
 
 
-type alias Hyperswarm =
+type Hyperswarm
+    = Uninitialized
+    | CreateOrJoin
+    | Initializing String
+    | Joining { secret : String, topic : Json.Encode.Value, payloadKey : Json.Encode.Value }
+    | Joined Swarm
+
+
+type alias Swarm =
     { myPublicKey : String
     , peers : Dict String Json.Encode.Value
+    , secret : String
+    , topic : Json.Encode.Value
+    , payloadKey : Json.Encode.Value
     }
 
 
@@ -127,8 +146,11 @@ type BackendMsg
     = WindowOpened (Result String Desktop.Window)
     | PeerConnected ( String, Json.Encode.Value )
     | PeerDisconnected String
-    | SwarmReady String
-    | DataReceived String
+    | DoesSecretExist (Maybe String)
+    | StoreReady { secret : String, topic : Json.Encode.Value, payloadKey : Json.Encode.Value }
+    | SwarmReady { secret : String, payloadKey : Json.Encode.Value, topic : Json.Encode.Value, myPublicKey : String }
+    | SwarmError String
+    | DataReceived ( Bool, String )
     | SettingsLoaded (Result Desktop.FileError String)
     | SettingsSaved Settings (Result Desktop.FileError ())
     | TodosSaved (Result Desktop.FileError ())

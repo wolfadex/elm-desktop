@@ -14,9 +14,10 @@ import Json.Decode
 import Json.Encode
 import Types
     exposing
-        ( FrontendModel
+        ( DeviceName(..)
+        , FrontendModel(..)
         , FrontendMsg(..)
-        , FrontendState(..)
+        , NetworkState(..)
         , RemoteData(..)
         , ToBackend(..)
         , ToFrontend(..)
@@ -40,49 +41,163 @@ main =
 
 init : Flags -> Desktop.FrontendKey -> ( FrontendModel, Cmd FrontendMsg )
 init {} key =
-    ( { key = key
-      , state = WaitingForDeviceName
-      }
+    ( InitializingFrontend
+        { key = key
+        , deviceName = LocatingName
+        , network = FindingSecret
+        }
     , Cmd.none
     )
 
 
 update : FrontendMsg -> FrontendModel -> ( FrontendModel, Cmd FrontendMsg )
 update msg model =
-    case model.state of
-        WaitingForDeviceName ->
-            ( model, Cmd.none )
-
-        NeedsDeviceName _ ->
+    case model of
+        InitializingFrontend mod ->
             case msg of
-                DeviceNameChanged deviceName ->
-                    ( { model
-                        | state = NeedsDeviceName deviceName
-                      }
-                    , Cmd.none
-                    )
+                DeviceNameChanged name ->
+                    case mod.deviceName of
+                        LocatingName ->
+                            ( model, Cmd.none )
 
-                DeviceNameSubmitted deviceName ->
-                    let
-                        trimmedDeviceName =
-                            String.trim deviceName
-                    in
-                    if String.isEmpty trimmedDeviceName then
-                        ( model, Cmd.none )
+                        NeedsName _ ->
+                            ( InitializingFrontend { mod | deviceName = NeedsName name }, Cmd.none )
 
-                    else
-                        ( { model | state = SavingDeviceName deviceName }
-                        , Desktop.Frontend.sendToBackend model.key (SetDeviceName trimmedDeviceName)
-                        )
+                        SettingName _ ->
+                            ( model, Cmd.none )
 
-                _ ->
+                        HasName _ ->
+                            ( model, Cmd.none )
+
+                DeviceNameSubmitted name ->
+                    case mod.deviceName of
+                        LocatingName ->
+                            ( model, Cmd.none )
+
+                        NeedsName _ ->
+                            let
+                                trimmedDeviceName =
+                                    String.trim name
+                            in
+                            if String.isEmpty trimmedDeviceName then
+                                ( model, Cmd.none )
+
+                            else
+                                ( InitializingFrontend { mod | deviceName = SettingName trimmedDeviceName }
+                                , Desktop.Frontend.sendToBackend mod.key (SetDeviceName trimmedDeviceName)
+                                )
+
+                        SettingName _ ->
+                            ( model, Cmd.none )
+
+                        HasName _ ->
+                            ( model, Cmd.none )
+
+                UserChangedNewTodo newTodo ->
+                    case mod.deviceName of
+                        LocatingName ->
+                            ( model, Cmd.none )
+
+                        NeedsName _ ->
+                            ( model, Cmd.none )
+
+                        SettingName _ ->
+                            ( model, Cmd.none )
+
+                        HasName todoDoc ->
+                            case Crdt.Edit.set Types.todoDoc.newTodo newTodo todoDoc of
+                                Err err ->
+                                    Debug.todo (Debug.toString err)
+
+                                Ok newTodoDoc ->
+                                    ( InitializingFrontend { mod | deviceName = HasName newTodoDoc }
+                                    , Cmd.none
+                                    )
+
+                SaveNewTodo newTodo ->
+                    case mod.deviceName of
+                        LocatingName ->
+                            ( model, Cmd.none )
+
+                        NeedsName _ ->
+                            ( model, Cmd.none )
+
+                        SettingName _ ->
+                            ( model, Cmd.none )
+
+                        HasName todoDoc ->
+                            let
+                                trimmedNewTodo =
+                                    String.trim newTodo
+                            in
+                            if String.isEmpty trimmedNewTodo then
+                                ( model, Cmd.none )
+
+                            else
+                                case Crdt.Edit.append Types.todoDoc.todos trimmedNewTodo todoDoc of
+                                    Err err ->
+                                        Debug.todo (Debug.toString err)
+
+                                    Ok todoDocWithUpdatedTodos ->
+                                        case Crdt.Edit.set Types.todoDoc.newTodo "" todoDocWithUpdatedTodos of
+                                            Err err ->
+                                                Debug.todo (Debug.toString err)
+
+                                            Ok newTodoDoc ->
+                                                ( InitializingFrontend { mod | deviceName = HasName newTodoDoc }
+                                                , Desktop.Frontend.sendToBackend mod.key (SaveTodos (Crdt.Doc.encode newTodoDoc |> Json.Encode.encode 0))
+                                                )
+
+                RemoveTodo idx ->
+                    case mod.deviceName of
+                        LocatingName ->
+                            ( model, Cmd.none )
+
+                        NeedsName _ ->
+                            ( model, Cmd.none )
+
+                        SettingName _ ->
+                            ( model, Cmd.none )
+
+                        HasName todoDoc ->
+                            case Crdt.Edit.remove Types.todoDoc.todos idx todoDoc of
+                                Err err ->
+                                    Debug.todo (Debug.toString err)
+
+                                Ok newTodoDoc ->
+                                    ( InitializingFrontend { mod | deviceName = HasName newTodoDoc }
+                                    , Desktop.Frontend.sendToBackend mod.key (SaveTodos (Crdt.Doc.encode newTodoDoc |> Json.Encode.encode 0))
+                                    )
+
+                MakeThisDeviceTheFirstDevice ->
+                    case mod.network of
+                        CreatingSecret secret ->
+                            ( InitializingFrontend { mod | network = JoiningNetwork secret }
+                            , Desktop.Frontend.sendToBackend mod.key UserWantToCreateNetwork
+                            )
+
+                        _ ->
+                            ( model, Cmd.none )
+
+                MakeThisDeviceAnAdditionalDevice ->
+                    case mod.network of
+                        CreatingSecret secret ->
+                            -- ( InitializingFrontend { mod | network = JoiningSecret secret }
+                            -- , Desktop.Frontend.sendToBackend mod.key (UserWantsToJoinNetwork secret)
+                            -- )
+                            Debug.todo "MakeThisDeviceAnAdditionalDevice"
+
+                        _ ->
+                            ( model, Cmd.none )
+
+        InitializedFrontend mod ->
+            case msg of
+                MakeThisDeviceTheFirstDevice ->
                     ( model, Cmd.none )
 
-        SavingDeviceName _ ->
-            ( model, Cmd.none )
+                MakeThisDeviceAnAdditionalDevice ->
+                    ( model, Cmd.none )
 
-        ReadyForTodos ready ->
-            case msg of
                 DeviceNameChanged _ ->
                     ( model, Cmd.none )
 
@@ -90,12 +205,12 @@ update msg model =
                     ( model, Cmd.none )
 
                 UserChangedNewTodo newTodo ->
-                    case Crdt.Edit.set Types.todoDoc.newTodo newTodo ready.todoDoc of
+                    case Crdt.Edit.set Types.todoDoc.newTodo newTodo mod.todoDoc of
                         Err err ->
                             Debug.todo (Debug.toString err)
 
                         Ok todoDoc ->
-                            ( { model | state = ReadyForTodos { ready | todoDoc = todoDoc } }
+                            ( InitializedFrontend { mod | todoDoc = todoDoc }
                             , Cmd.none
                             )
 
@@ -108,7 +223,7 @@ update msg model =
                         ( model, Cmd.none )
 
                     else
-                        case Crdt.Edit.append Types.todoDoc.todos trimmedNewTodo ready.todoDoc of
+                        case Crdt.Edit.append Types.todoDoc.todos trimmedNewTodo mod.todoDoc of
                             Err err ->
                                 Debug.todo (Debug.toString err)
 
@@ -118,196 +233,217 @@ update msg model =
                                         Debug.todo (Debug.toString err)
 
                                     Ok todoDoc ->
-                                        ( { model | state = ReadyForTodos { ready | todoDoc = todoDoc } }
-                                        , Desktop.Frontend.sendToBackend model.key (SaveTodos (Crdt.Doc.encode todoDoc |> Json.Encode.encode 0))
+                                        ( InitializedFrontend { mod | todoDoc = todoDoc }
+                                        , Desktop.Frontend.sendToBackend mod.key (SaveTodos (Crdt.Doc.encode todoDoc |> Json.Encode.encode 0))
                                         )
 
                 RemoveTodo idx ->
-                    case Crdt.Edit.remove Types.todoDoc.todos idx ready.todoDoc of
+                    case Crdt.Edit.remove Types.todoDoc.todos idx mod.todoDoc of
                         Err err ->
                             Debug.todo (Debug.toString err)
 
                         Ok todoDoc ->
-                            ( { model | state = ReadyForTodos { ready | todoDoc = todoDoc } }
-                            , Desktop.Frontend.sendToBackend model.key (SaveTodos (Crdt.Doc.encode todoDoc |> Json.Encode.encode 0))
+                            ( InitializedFrontend { mod | todoDoc = todoDoc }
+                            , Desktop.Frontend.sendToBackend mod.key (SaveTodos (Crdt.Doc.encode todoDoc |> Json.Encode.encode 0))
                             )
 
 
 updateFromBackend : ToFrontend -> FrontendModel -> ( FrontendModel, Cmd FrontendMsg )
 updateFromBackend msg model =
-    case model.state of
-        WaitingForDeviceName ->
+    case model of
+        InitializingFrontend mod ->
             case msg of
                 DeviceNameUnset ->
-                    ( { model | state = NeedsDeviceName "" }, Cmd.none )
+                    ( InitializingFrontend { mod | deviceName = NeedsName "" }, Cmd.none )
 
                 DeviceNameSet deviceName ->
-                    ( { model
-                        | state =
-                            ReadyForTodos
-                                { hyperswarm = Loading
-                                , todoDoc = Crdt.init (Crdt.Id.replica deviceName) Types.todoDoc.schema
-                                }
-                      }
+                    ( InitializingFrontend
+                        { mod
+                            | deviceName =
+                                HasName (Crdt.init (Crdt.Id.replica deviceName) Types.todoDoc.schema)
+                        }
                     , Cmd.none
                     )
 
-                _ ->
-                    Debug.todo (Debug.toString msg)
+                InitializingSwarm secret ->
+                    ( InitializingFrontend { mod | network = JoiningNetwork secret }, Cmd.none )
 
-        NeedsDeviceName _ ->
-            case msg of
-                DeviceNameSet deviceName ->
-                    ( { model
-                        | state =
-                            ReadyForTodos
-                                { hyperswarm = Loading
-                                , todoDoc = Crdt.init (Crdt.Id.replica deviceName) Types.todoDoc.schema
-                                }
-                      }
-                    , Cmd.none
-                    )
+                PickCreateOrJoin ->
+                    ( InitializingFrontend { mod | network = CreatingSecret "" }, Cmd.none )
 
-                _ ->
-                    Debug.todo (Debug.toString msg)
+                NetworkJoined secret ->
+                    case mod.network of
+                        JoiningNetwork _ ->
+                            case mod.deviceName of
+                                HasName todoDoc ->
+                                    ( InitializedFrontend { key = mod.key, todoDoc = todoDoc, secret = secret }, Cmd.none )
 
-        SavingDeviceName _ ->
-            case msg of
-                DeviceNameSet deviceName ->
-                    ( { model
-                        | state =
-                            ReadyForTodos
-                                { hyperswarm = Loading
-                                , todoDoc = Crdt.init (Crdt.Id.replica deviceName) Types.todoDoc.schema
-                                }
-                      }
-                    , Cmd.none
-                    )
+                                _ ->
+                                    ( InitializingFrontend { mod | network = JoinedNetwork secret }, Cmd.none )
 
-                _ ->
-                    Debug.todo (Debug.toString msg)
+                        JoinError _ _ ->
+                            case mod.deviceName of
+                                HasName todoDoc ->
+                                    ( InitializedFrontend { key = mod.key, todoDoc = todoDoc, secret = secret }, Cmd.none )
 
-        ReadyForTodos ready ->
-            case msg of
-                AppReady ->
-                    ( { model | state = ReadyForTodos { ready | hyperswarm = Loaded () } }, Cmd.none )
+                                _ ->
+                                    ( InitializingFrontend { mod | network = JoinedNetwork secret }, Cmd.none )
+
+                        FindingSecret ->
+                            ( InitializingFrontend { mod | network = JoinedNetwork secret }, Cmd.none )
+
+                        CreatingSecret _ ->
+                            ( InitializingFrontend { mod | network = JoinedNetwork secret }, Cmd.none )
+
+                        JoiningSecret _ ->
+                            ( InitializingFrontend { mod | network = JoinedNetwork secret }, Cmd.none )
+
+                        JoinedNetwork _ ->
+                            ( InitializingFrontend { mod | network = JoinedNetwork secret }, Cmd.none )
 
                 TodosRecieved todosStr ->
-                    ( case Json.Decode.decodeString Json.Decode.value todosStr of
+                    case Json.Decode.decodeString Json.Decode.value todosStr of
                         Err err ->
                             Debug.todo (Debug.toString err)
 
                         Ok todos ->
-                            case Crdt.Doc.decodeInto todos ready.todoDoc of
+                            case mod.deviceName of
+                                HasName todoDoc ->
+                                    case Crdt.Doc.decodeInto todos todoDoc of
+                                        Err err ->
+                                            Debug.todo err
+
+                                        Ok newTodoDoc ->
+                                            ( InitializingFrontend { mod | deviceName = HasName newTodoDoc }
+                                            , Cmd.none
+                                            )
+
+                                _ ->
+                                    ( model, Cmd.none )
+
+        InitializedFrontend mod ->
+            case msg of
+                DeviceNameUnset ->
+                    ( model, Cmd.none )
+
+                DeviceNameSet _ ->
+                    ( model, Cmd.none )
+
+                PickCreateOrJoin ->
+                    ( model, Cmd.none )
+
+                InitializingSwarm _ ->
+                    ( model, Cmd.none )
+
+                NetworkJoined secret ->
+                    ( InitializedFrontend { mod | secret = secret }, Cmd.none )
+
+                TodosRecieved todosStr ->
+                    case Json.Decode.decodeString Json.Decode.value todosStr of
+                        Err err ->
+                            Debug.todo (Debug.toString err)
+
+                        Ok todos ->
+                            case Crdt.Doc.decodeInto todos mod.todoDoc of
                                 Err err ->
                                     Debug.todo err
 
                                 Ok todoDoc ->
-                                    { model | state = ReadyForTodos { ready | todoDoc = todoDoc } }
-                    , Cmd.none
-                    )
-
-                DeviceNameUnset ->
-                    Debug.todo "DeviceNameUnset"
-
-                DeviceNameSet deviceName ->
-                    ( { model
-                        | state =
-                            ReadyForTodos
-                                { hyperswarm = Loading
-                                , todoDoc =
-                                    Crdt.Doc.merge
-                                        ready.todoDoc
-                                        (Crdt.init (Crdt.Id.replica deviceName) Types.todoDoc.schema)
-                                }
-                      }
-                    , Cmd.none
-                    )
+                                    ( InitializedFrontend { mod | todoDoc = todoDoc }
+                                    , Cmd.none
+                                    )
 
 
 view : FrontendModel -> Browser.Document FrontendMsg
 view model =
     { title = "Elm + Electron + Lamdera wire demo"
     , body =
-        case model.state of
-            WaitingForDeviceName ->
-                [ Html.div [ Html.Attributes.class "loading-screen" ]
-                    [ Html.div [ Html.Attributes.class "loading-spinner" ] []
-                    , Html.div [ Html.Attributes.class "loading-message" ]
-                        [ Html.text "Loading" ]
-                    ]
-                ]
-
-            NeedsDeviceName deviceName ->
-                [ Html.div [ Html.Attributes.class "devicename-screen" ]
-                    [ Html.div [ Html.Attributes.class "devicename-card" ]
-                        [ Html.h1 [ Html.Attributes.class "devicename-title" ]
-                            [ Html.text "Welcome" ]
-                        , Html.p [ Html.Attributes.class "devicename-subtitle" ]
-                            [ Html.text "Choose a devicename to get started." ]
-                        , Html.form
-                            [ Html.Events.onSubmit (DeviceNameSubmitted deviceName)
-                            , Html.Attributes.class "devicename-form"
-                            ]
-                            [ Html.input
-                                [ Html.Attributes.value deviceName
-                                , Html.Events.onInput DeviceNameChanged
-                                , Html.Attributes.placeholder "Device name"
-                                ]
-                                []
-                            , Html.button
-                                [ Html.Attributes.type_ "submit"
-                                , Html.Attributes.disabled (String.trim deviceName == "")
-                                ]
-                                [ Html.text "Continue" ]
+        case model of
+            InitializingFrontend mod ->
+                case ( mod.deviceName, mod.network ) of
+                    ( LocatingName, _ ) ->
+                        [ Html.div [ Html.Attributes.class "loading-screen" ]
+                            [ Html.div [ Html.Attributes.class "loading-spinner" ] []
+                            , Html.div [ Html.Attributes.class "loading-message" ]
+                                [ Html.text "Loading" ]
                             ]
                         ]
-                    ]
-                ]
 
-            SavingDeviceName deviceName ->
-                [ Html.div [ Html.Attributes.class "devicename-screen" ]
-                    [ Html.div [ Html.Attributes.class "devicename-card" ]
-                        [ Html.h1 [ Html.Attributes.class "devicename-title" ]
-                            [ Html.text "Welcome" ]
-                        , Html.p [ Html.Attributes.class "devicename-subtitle" ]
-                            [ Html.text "Choose a devicename to get started." ]
-                        , Html.form
-                            [ Html.Events.onSubmit (DeviceNameSubmitted deviceName)
-                            , Html.Attributes.class "devicename-form"
-                            ]
-                            [ Html.input
-                                [ Html.Attributes.value deviceName
-                                , Html.Events.onInput DeviceNameChanged
-                                , Html.Attributes.placeholder "Device name"
-                                ]
-                                []
-                            , Html.button
-                                [ Html.Attributes.type_ "submit"
-                                , Html.Attributes.disabled (String.trim deviceName == "")
-                                ]
-                                [ Html.text "Continue" ]
+                    ( SettingName _, _ ) ->
+                        [ Html.div [ Html.Attributes.class "loading-screen" ]
+                            [ Html.div [ Html.Attributes.class "loading-spinner" ] []
+                            , Html.div [ Html.Attributes.class "loading-message" ]
+                                [ Html.text "Loading" ]
                             ]
                         ]
-                    ]
-                ]
 
-            ReadyForTodos ready ->
+                    ( NeedsName deviceName, _ ) ->
+                        [ Html.div [ Html.Attributes.class "devicename-screen" ]
+                            [ Html.div [ Html.Attributes.class "devicename-card" ]
+                                [ Html.h1 [ Html.Attributes.class "devicename-title" ]
+                                    [ Html.text "Welcome" ]
+                                , Html.p [ Html.Attributes.class "devicename-subtitle" ]
+                                    [ Html.text "Choose a devicename to get started." ]
+                                , Html.form
+                                    [ Html.Events.onSubmit (DeviceNameSubmitted deviceName)
+                                    , Html.Attributes.class "devicename-form"
+                                    ]
+                                    [ Html.input
+                                        [ Html.Attributes.value deviceName
+                                        , Html.Events.onInput DeviceNameChanged
+                                        , Html.Attributes.placeholder "Device name"
+                                        ]
+                                        []
+                                    , Html.button
+                                        [ Html.Attributes.type_ "submit"
+                                        , Html.Attributes.disabled (String.trim deviceName == "")
+                                        ]
+                                        [ Html.text "Continue" ]
+                                    ]
+                                ]
+                            ]
+                        ]
+
+                    ( HasName todoDoc, network ) ->
+                        [ let
+                            newTodoValue =
+                                todoDoc
+                                    |> Crdt.Doc.read
+                                    |> Result.map .newTodo
+                                    |> Result.withDefault ""
+
+                            todos =
+                                todoDoc
+                                    |> Crdt.Doc.read
+                                    |> Result.map .todos
+                                    |> Result.withDefault []
+                          in
+                          Html.div [ Html.Attributes.class "todo-app" ]
+                            [ statusBar network
+                            , Html.div []
+                                [ newTodoForm newTodoValue
+                                , todoList todos
+                                ]
+                            ]
+                        ]
+
+            InitializedFrontend mod ->
                 [ let
                     newTodoValue =
-                        ready.todoDoc
+                        mod.todoDoc
                             |> Crdt.Doc.read
                             |> Result.map .newTodo
                             |> Result.withDefault ""
 
                     todos =
-                        ready.todoDoc
+                        mod.todoDoc
                             |> Crdt.Doc.read
                             |> Result.map .todos
                             |> Result.withDefault []
                   in
                   Html.div [ Html.Attributes.class "todo-app" ]
-                    [ statusBar ready.hyperswarm
+                    [ Html.div [ Html.Attributes.class "status status-saving" ]
+                        [ Html.text "Connected" ]
                     , Html.div []
                         [ newTodoForm newTodoValue
                         , todoList todos
@@ -317,23 +453,52 @@ view model =
     }
 
 
-statusBar : RemoteData String () -> Html FrontendMsg
-statusBar hyperswarm =
-    case hyperswarm of
-        Loading ->
+statusBar : NetworkState -> Html FrontendMsg
+statusBar network =
+    case network of
+        FindingSecret ->
+            Html.div
+                [ Html.Attributes.class "status status-syncing" ]
+                [ Html.text "Initializing…"
+                , Html.div [ Html.Attributes.class "loading-spinner" ] []
+                ]
+
+        JoiningSecret _ ->
+            Html.div
+                [ Html.Attributes.class "status status-syncing" ]
+                [ Html.text "Joining…"
+                , Html.div [ Html.Attributes.class "loading-spinner" ] []
+                ]
+
+        JoiningNetwork _ ->
             Html.div
                 [ Html.Attributes.class "status status-syncing" ]
                 [ Html.text "Connecting…"
                 , Html.div [ Html.Attributes.class "loading-spinner" ] []
                 ]
 
-        Loaded () ->
+        JoinedNetwork _ ->
             Html.div [ Html.Attributes.class "status status-saving" ]
                 [ Html.text "Connected" ]
 
-        Error err ->
+        JoinError _ err ->
             Html.div [ Html.Attributes.class "status status-error" ]
                 [ Html.text ("Offline: " ++ err) ]
+
+        CreatingSecret _ ->
+            Html.div
+                [ Html.Attributes.class "status status-syncing" ]
+                [ Html.button
+                    [ Html.Attributes.type_ "button"
+                    , Html.Events.onClick MakeThisDeviceTheFirstDevice
+                    ]
+                    [ Html.text "This is my first device" ]
+                , Html.button
+                    [ Html.Attributes.type_ "button"
+                    , Html.Events.onClick MakeThisDeviceAnAdditionalDevice
+                    ]
+                    [ Html.text "Connect to another device" ]
+                ]
 
 
 newTodoForm : String -> Html FrontendMsg

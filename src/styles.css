@@ -87,7 +87,7 @@ body {
   margin-bottom: 1.5rem;
 }
 
-.new-todo-form input {
+input {
   flex: 1;
   font: inherit;
   font-family: "Inter", system-ui, sans-serif;
@@ -99,12 +99,12 @@ body {
   color: var(--ink);
 }
 
-.new-todo-form input:focus-visible {
+input:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
 
-.new-todo-form button {
+button {
   font-family: "Inter", system-ui, sans-serif;
   font-size: 0.95rem;
   padding: 0.6rem 1rem;
@@ -115,13 +115,13 @@ body {
   cursor: pointer;
 }
 
-.new-todo-form button:disabled {
+button:disabled {
   background: var(--line);
   color: var(--muted);
   cursor: not-allowed;
 }
 
-.new-todo-form button:focus-visible {
+button:focus-visible {
   outline: 2px solid var(--ink);
   outline-offset: 2px;
 }
